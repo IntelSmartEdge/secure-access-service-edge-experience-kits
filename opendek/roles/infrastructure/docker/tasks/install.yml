@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+- name: update cache
+  package:
+    update_cache: true
+  become: yes
+  retries: "{{ number_of_retries }}"
+  delay: "{{ retry_delay }}"
+
+- name: install docker OS dependencies and role utils
+  package:
+    name: "{{ _docker_os_dependencies }}"
+    state: present
+  become: yes
+
+- name: install OS specific
+  include_tasks: "install_{{ ansible_os_family|lower }}.yml"
+
+- name: install Docker CE
+  package:
+    name: "{{ _docker_packages }}"
+    state: present
+  notify:
+    - enable and start docker service
+  become: yes
+
+- name: setup docker bash completion
+  block:
+    - name: download Docker CLI bash completion
+      get_url:
+        url: "{{ _docker_completion_url }}"
+        dest: "/etc/bash_completion.d"
+      become: yes
+      register: result
+      retries: "{{ number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ retry_delay }}"
+    - name: download Docker Compose bash completion
+      get_url:
+        url: "{{ _docker_compose_completion_url }}"
+        dest: "/etc/bash_completion.d"
+      become: yes
+      register: result
+      retries: "{{ number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ retry_delay }}"
+
+- name: install Python2 docker module
+  pip:
+    name: docker
+    state: present
+    executable: pip2
+  become: yes
+  when: ansible_python.version.major == 2

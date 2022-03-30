@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2019-2021 Intel Corporation
+
+---
+- name: prepare directory tree
+  become: yes
+  block:
+    - name: add group "{{ project_group }}"
+      group:
+        name: "{{ project_group }}"
+        state: present
+
+    - name: create main directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: a=rx,u+w
+        owner: "{{ ansible_user }}"
+        group: "{{ project_group }}"
+
+    - name: create project subdirectories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: a=rx,u+w
+        owner: "{{ ansible_user }}"
+        group: "{{ project_group }}"
+      loop:
+        - "{{ project_dir }}/certs"
+        - "{{ project_dir }}/configs"
+        - "{{ project_dir }}/scripts"
+
+    - name: create edgednssvr directory
+      file:
+        path: "{{ project_dir }}/edgednssvr"
+        state: directory
+        mode: a=rx,u+w
+        owner: "{{ ansible_user }}"
+        group: "{{ project_group }}"
+      when: dns_enable | default(false)
+
+    - name: create edgedns directory
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: a=rx,u+w
+        owner: "{{ ansible_user }}"
+        group: "{{ project_group }}"
+      loop:
+        - "{{ project_dir }}/edgedns"
+        - "{{ project_dir }}/edgedns/configs"
+        - "{{ project_dir }}/edgedns/certs"
+      when: dns_enable | default(false)
+
+    - name: create pv grafana directory
+      file:
+        path: "{{ _persistent_volumes_dest }}/grafana"
+        state: directory
+        mode: a=rx,u+w
+        owner: "{{ ansible_user }}"
+        group: "{{ project_group }}"
+      when: telemetry_grafana_enable | default(True)
+
+    - name: create pv prometheus directory
+      file:
+        path: "{{ _persistent_volumes_dest }}/prometheus"
+        state: directory
+        mode: a=rx,u+w
+        owner: "{{ ansible_user }}"
+        group: "{{ project_group }}"
+      when: telemetry_prometheus_enable | default(True)

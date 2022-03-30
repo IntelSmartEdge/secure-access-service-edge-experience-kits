@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020-2021 Intel Corporation
+
+---
+- name: Check if harbor release already exists
+  command: helm status harbor-app -n {{ _harbor_namespace }}
+  failed_when: false
+  register: get_release_harbor
+  changed_when: false
+
+- name: Install Harbor
+  include_tasks: install_harbor.yml
+  when: get_release_harbor.rc != 0
+
+- name: Extract admin password
+  command: kubectl get secret --namespace {{ _harbor_namespace }} harbor-admin -o jsonpath="{.data.admin-password}"
+  register: harbor_password_cmd
+  changed_when: false
+
+- name: Store admin password
+  set_fact:
+    harbor_admin_password: "{{ harbor_password_cmd.stdout | b64decode }}"
+
+- name: Check if intel project exists
+  uri:
+    use_proxy: false
+    validate_certs: false
+    force_basic_auth: true
+    method: HEAD
+    url: "https://{{ _registry_ip_address }}:{{ _registry_port }}/api/{{ harbor_api_version }}/projects?project_name=intel"
+    user: admin
+    password: "{{ harbor_admin_password }}"
+    status_code:
+      - 200
+      - 404
+  register: output
+  retries: 10
+  delay: 10
+  until: output.status | int == 200 or output.status | int == 404 # Take care of timeouting
+
+- name: Create a new harbor project named intel if it doesn't exist
+  uri:
+    use_proxy: false
+    validate_certs: false
+    force_basic_auth: true
+    method: POST
+    url: https://{{ _registry_ip_address }}:{{ _registry_port }}/api/{{ harbor_api_version }}/projects
+    user: admin
+    password: "{{ harbor_admin_password }}"
+    body_format: json
+    body: "{{ _harbor_project_request_content }}"
+    status_code:
+      - 201
+  when: output.status | int == 404
+
+- name: Login into harbor registry
+  include_role:
+    name: kubernetes/harbor_registry/node

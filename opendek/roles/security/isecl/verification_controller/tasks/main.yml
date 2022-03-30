@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+- name: Load OS specyfic vars
+  include_vars: ../../common/defaults/main.yml
+
+- name: update controller IP
+  set_fact:
+    isecl_control_plane_ip: "{{ hostvars[inventory_hostname].ansible_default_ipv4.address }}"
+  when: isecl_control_plane_ip | length == 0
+
+- name: Setup helm charts dir
+  include_tasks: ../../common/tasks/setup_helm_chart_dir.yml
+
+- name: Setup NFS
+  include_tasks: ../../common/tasks/setup_nfs.yml
+
+- name: Generate isecl control plane usecase values.yml
+  template:
+    src: isecl-control-plane-values.yaml.j2
+    dest: "{{ isecl_helm_charts_dir }}/usecases/twp-control-plane/values.yaml"
+    mode: a=rx,u+w
+
+- name: Run helm dependency update
+  command: helm dependency update usecases/twp-control-plane/
+  args:
+    chdir: "{{ isecl_helm_charts_dir }}"
+  changed_when: false
+
+- name: Deploy isecl control plan services
+  command: "helm install twp-cp usecases/twp-control-plane/ -n {{ isecl_name_space }} --create-namespace"
+  args:
+    chdir: "{{ isecl_helm_charts_dir }}"
+  changed_when: false

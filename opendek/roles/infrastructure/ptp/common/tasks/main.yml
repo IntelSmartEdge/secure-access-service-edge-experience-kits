@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020-2021 Intel Corporation
+
+---
+- name: install dependencies
+  include_role:
+    name: infrastructure/install_dependencies
+
+- name: Verify if host's environment supports PTP
+  block:
+  - name: Get current kernel
+    command: uname -r
+    register: current_kernel
+
+  - name: Register kernel ptp settings from /boot/config
+    command: "grep {{ item }}= /boot/config-{{ current_kernel.stdout }}"
+    loop: "{{ _kernel_ptp_config_vars }}"
+    register: ptp_vars
+
+  - name: Fail if kernel configuration does not support PTP
+    fail:
+      msg: "The host's kernel configuration does not support PTP"
+    when: "'=n' in  item.stdout"
+    loop: "{{ ptp_vars.results }}"
+    changed_when: true
+
+  - name: Register hardware timestamp support
+    command: ethtool -T {{ item }}
+    with_items: "{{ ptp_port }}"
+    register: hardware_timestamp
+    become: yes
+
+  - name: Fail if the hardware does not support PTP
+    fail:
+      msg: "The host's NIC does not support PTP"
+    when:
+      ('SOF_TIMESTAMPING_TX_HARDWARE' not in item.stdout  ) and
+      ('SOF_TIMESTAMPING_RX_HARDWARE' not in  item.stdout  ) and
+      ('SOF_TIMESTAMPING_RAW_HARDWARE' not in item.stdout )
+    loop: "{{ hardware_timestamp.results }}"
+
+  when: inventory_hostname in groups['ptp_master'] or
+    inventory_hostname in groups['ptp_slave_group']
+
+- name: Install ptp
+  block:
+  - name: open ptp firewall ports
+    include_role:
+      name: infrastructure/firewall_open_ports
+    vars:
+      fw_open_ports: "{{ ptp_open_ports }}"
+
+  - name: Reload firewall rules
+    command: firewall-cmd --reload
+    changed_when: true
+    failed_when: false
+    become: yes
+    when: ansible_os_family == 'RedHat'
+
+  - name: Download linuxptp git repository
+    git:
+      repo: "{{ _linuxptp_git_repo.dir }}"
+      dest: "{{ _linuxptp_git_repo.download_dir }}"
+      version: "{{ _linuxptp_git_repo.branch }}"
+      force: true
+    become: yes
+
+  - name: Compile and install linuxapp
+    command: "{{ item }}"
+    loop:
+      - make -j
+      - make install
+    args:
+      chdir: "{{ _linuxptp_git_repo.download_dir }}"
+    become: yes
+
+  - name: Copy config file
+    copy:
+      src: "{{ _linuxptp_git_repo.download_dir }}/configs/default.cfg"
+      dest: "{{ _linuxptp_git_repo.download_dir }}/configs/default_slave.cfg"
+      mode: preserve
+      remote_src: true
+    become: yes
+
+  - name: Apply patch to config
+    patch:
+      src: "{{ _config_slave_patch }}"
+      basedir: "{{ _linuxptp_git_repo.download_dir }}"
+      strip: 0
+    become: yes
+  when:
+    (inventory_hostname in groups['ptp_master'] or
+    inventory_hostname in groups['ptp_slave_group'])

@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+---
+- name: create temporary directory
+  tempfile:
+    suffix: statsd-exporter
+    state: directory
+  register: temp_dir
+
+- name: create certificates for Statsd-exporter
+  include_role:
+    name: kubernetes/certs
+  vars:
+    tls_secret_name: "{{ _proxy_secret_name }}"
+    desired_namespace: "{{ telemetry_namespace }}"
+    dns_names: ["statsd-exporter"]
+
+- name: template values.yaml file
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ temp_dir.path }}/{{ item.dest }}"
+    mode: u+rw
+    force: yes
+  loop:
+    - {src: kustomization.yml.j2, dest: kustomization.yaml}
+    - {src: values.yml.j2, dest: overwrite_values.yaml}
+    - {src: proxy_configmap.yml.j2, dest: proxy_configmap.yaml}
+
+- name: apply statsd-cm manifest
+  command: kubectl apply -f "{{ temp_dir.path }}/proxy_configmap.yaml"
+  changed_when: true
+
+- name: template prometheus-statsd-exporter helm charts
+  command:
+    argv:
+      - helm
+      - template
+      - --values
+      - "{{ temp_dir.path }}/overwrite_values.yaml"
+      - --repo
+      - "{{ _statsd_helm_repo.url }}"
+      - --version
+      - "{{ _statsd_helm_repo.version }}"
+      - --namespace
+      - "{{ telemetry_namespace }}"
+      - --no-hooks # Omit http hook since we don't expose http port
+      - statsd-exporter
+      - "{{ _statsd_helm_repo.name }}"
+  changed_when: false
+  register: template_command
+
+- name: write the templated manifests to one file
+  copy:
+    content: "{{ template_command.stdout }}"
+    dest: "{{ temp_dir.path }}/all.yaml"
+    mode: u+rw
+
+- name: Kustomize and apply templated file
+  command: kubectl apply -k {{ temp_dir.path }}
+  changed_when: true

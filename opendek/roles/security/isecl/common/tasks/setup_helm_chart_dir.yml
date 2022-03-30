@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+--- 
+- name: Check if isecl helm chart dir exists
+  stat:
+    path: "{{ isecl_helm_charts_dir }}"
+  register: isecl_chart_dir
+
+- name: Remove if isecl chart dir exists
+  file:
+    state: absent
+    path: "{{ isecl_helm_charts_dir }}"
+  when: isecl_chart_dir.stat.exists
+
+- name: Get isecl helm charts from git
+  git:
+    repo: "{{ isecl_helm_repo }}"
+    version: "{{ isecl_helm_repo_tag }}"
+    dest: "{{ isecl_helm_charts_dir }}"
+    force: yes
+
+- name: Change permission of setup_nfs.sh
+  file:
+    path: "{{ isecl_helm_charts_dir }}/setup-nfs.sh"
+    mode: a+x
+  changed_when: false

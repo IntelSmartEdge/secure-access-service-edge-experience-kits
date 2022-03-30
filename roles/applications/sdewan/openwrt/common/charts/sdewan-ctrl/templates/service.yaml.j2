@@ -1,0 +1,43 @@
+# INTEL CONFIDENTIAL
+#
+# Copyright 2021-2021 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: {{ .Values.spec.label }}
+  name: sdewan-controller-manager-metrics-service
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: {{ .Values.spec.label }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sdewan-webhook-service
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: {{ .Values.spec.label }}
+

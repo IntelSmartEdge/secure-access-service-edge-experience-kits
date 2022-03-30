@@ -1,0 +1,59 @@
+# INTEL CONFIDENTIAL
+#
+# Copyright 2021-2021 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+---
+
+metadata:
+  name: sdewan-cnf
+  namespace: cnf
+  labels: sdewan-cnf
+  passwdSecret: sdewan-safe-pass 
+  passwd: {{ sdwan_cnf_password }}
+  cert: cnf-default-cert
+
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+
+strategy:
+  maxSurge: 25%
+  maxUnavailable: 25%
+
+## these are details of sample networks
+# user is expected to modify extend this list of networks
+# as per their cnf requirements.
+nfn:
+{% for i in item.interfaces %}
+  - defaultGateway: false
+    interface: {{ i.name }}
+    ipAddress: {{ i.ipAddress }}
+    name: {{ i.belongto }}
+{% if loop.last %}
+    separate: ""
+{% else %}
+    separate: ","
+{% endif %}
+{% endfor %}
+
+containers:
+  name: sdewan
+  # adjust image details before SDEWAN CNF chart installation
+  image:
+    registry: ""
+    name: "openwrt-1806-mwan3"
+    tag: "v0.1"
+  imagePullPolicy: IfNotPresent
+
+labelName: "sdewan"
+labelValue: "true"
+
+restartPolicy: Always

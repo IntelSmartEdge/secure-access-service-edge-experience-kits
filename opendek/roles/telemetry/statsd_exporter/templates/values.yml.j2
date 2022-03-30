@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+
+project_dir: "{{ project_dir }}"
+replicaCount: 1
+# deploymentRevisionHistoryLimit: 10
+
+image:
+  repository: prom/statsd-exporter
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: v0.22.4
+
+fullnameOverride: {{ _statsd_fullname_override }}
+
+statsd:
+  # The UDP port on which to receive statsd metric lines.
+  udpPort: "{{ telemetry_statsd_exporter_udp_port }}"
+
+  # The TCP port on which to receive statsd metric lines.
+  tcpPort: "{{ telemetry_statsd_exporter_tcp_port }}"
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  # The address on which to expose generated Prometheus metrics.
+  port: 9120
+  # Path under which to expose metrics.
+  path: /metrics
+  annotations: {}
+
+tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists

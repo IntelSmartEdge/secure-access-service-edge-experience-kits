@@ -1,0 +1,308 @@
+# INTEL CONFIDENTIAL
+#
+# Copyright 2021-2021 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+---
+
+- name: setup ctrl pod
+  block:
+    - name: copy Helm chart to the master node
+      copy:
+        src: "{{ role_path }}/charts/sdewan-ctrl"
+        dest: "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl"
+        mode: preserve
+      become: yes
+
+    - name: rename ctrl file
+      command:
+        mv  "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/templates/{{ item.src }}"
+            "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/templates/{{ item.dest }}"
+      loop:
+        - src: "certificate.yaml.j2"
+          dest: "certificate.yaml"
+        - src: "crd.yaml.j2"
+          dest: "crd.yaml"
+        - src: "deployment.yaml.j2"
+          dest: "deployment.yaml"
+        - src: "issuer.yml.j2"
+          dest: "issuer.yml"
+        - src: "namespace.yml.j2"
+          dest: "namespace.yml"
+        - src: "role.yml.j2"
+          dest: "role.yml"
+        - src: "service.yaml.j2"
+          dest: "service.yaml"
+        - src: "webhook.yml.j2"
+          dest: "webhook.yml"
+      become: yes
+
+    - name: rename ctrl Helm chart
+      command:
+        mv "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/{{ item.src }}"
+           "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/{{ item.dest }}"
+      loop:
+        - src: "values.yaml.j2"
+          dest: "values.yaml"
+        - src: "Chart.yaml.j2"
+          dest: "Chart.yaml"
+      become: yes
+
+    - name: download cert-manager
+      get_url:
+        url: "{{ cert_link }}"
+        dest: "{{ sdewan_helm_charts_dir }}"
+      register: result
+      retries: "{{ sdwan_number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ sdwan_retry_delay }}"
+      become: yes
+
+    - name: pre-install
+      command: kubectl apply -f {{ item }}
+      args:
+         chdir: "{{ sdewan_helm_charts_dir }}"
+      loop:
+        - cert-manager.yaml
+      become: yes
+      failed_when: false
+
+    - name: download kubebuilder
+      get_url:
+        url: "{{ kubebuilder_link }}"
+        dest: "{{ kubebuilder_download_dest }}"
+      register: result
+      retries: "{{ sdwan_number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ sdwan_retry_delay }}"
+      become: yes
+
+    - name: tar kubebuilder
+      unarchive:
+        src: "{{ kubebuilder_download_dest }}"
+        dest: "/tmp/"
+        remote_src: true
+      become: yes
+
+    - name: delete old kubebuilder from /usr/local folder
+      file:
+        path: "{{ kubebuilder_bin_folder }}"
+        state: absent
+      become: yes
+
+    - name: move kubebuilder to bin(copy will change x mode for file)
+      command: mv {{ kubebuilder_tar_folder }} {{ kubebuilder_bin_folder }}
+      become: yes
+
+    - name: set env for kubebuilder
+      lineinfile:
+        state: present
+        dest: /etc/profile
+        line: "{{ item }}"
+      become: yes
+      loop:
+        - "export PATH=$PATH:/usr/local/kubebuilder/bin"
+
+    - name: check the status of pre-install
+      shell: kubectl get deploy -n cert-manager | grep 0/1 | wc -l
+      register: cert_deploy
+      retries: "{{ sdwan_number_of_retries }}"
+      delay: "{{ sdwan_retry_delay }}"
+      until: cert_deploy.stdout | int == 0
+      changed_when: false
+      become: yes
+
+    - name: checkout ewo repository
+      git:
+        repo: "{{ sdewan_crd_url }}"
+        dest: "{{ sdewan_helm_charts_dir }}/ewo"
+        version: "{{ sdewan_crd_commit }}"
+        force: true
+        clone: true
+        update: true
+      become: yes
+      register: result
+      retries: "{{ sdwan_number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ sdwan_retry_delay }}"
+
+    - name: prepare for build crd ctrl image
+      shell: source /etc/profile && make test
+      args:
+        chdir: "{{ sdwan_crd_image_path }}"
+      register: result
+      retries: 1
+      until: result is succeeded
+      delay: "{{ sdwan_retry_delay }}"
+      become: yes
+
+    - name: build crd ctrl image
+      shell: source /etc/profile && \
+             docker build --network=host --build-arg "http_proxy={{ git_http_proxy }}" --build-arg "https_proxy={{ git_http_proxy }}" \
+              --build-arg "no_proxy={{ sdwan_no_proxy }}" . -t {{ sdwan_crd_image }}
+      args:
+        chdir: "{{ sdwan_crd_image_path }}"
+      register: result
+      retries: 1
+      until: result is succeeded
+      delay: "{{ sdwan_retry_delay }}"
+      become: yes
+
+    - name: helm install ctrl pod
+      command: "{{ helm_cmd }} install sdewan-ctrl ./sdewan-crd-ctrl/sdewan-ctrl/"
+      args:
+        chdir: "{{ sdewan_helm_charts_dir }}"
+      become: yes
+
+    - name: check the status of ctrl pod
+      shell: kubectl get deploy -n sdewan-system | grep 0/1 | wc -l
+      register: ctrl_deploy
+      retries: "{{ sdwan_number_of_retries }}"
+      delay: "{{ sdwan_retry_delay }}"
+      until: ctrl_deploy.stdout | int == 0
+      changed_when: false
+      become: yes
+
+- name: set provider network
+  block:
+    - name: copy file to the master node
+      template:
+        src: "{{ role_path }}/templates/networks-prepare.yaml.j2"
+        dest: "{{ sdewan_helm_charts_dir }}/networks-prepare.yaml"
+        mode: a=rx,u+w
+      with_items: "{{ networks }}"
+      become: yes
+
+    - name: setup provider network
+      command: kubectl apply -f {{ item }}
+      args:
+         chdir: "{{ sdewan_helm_charts_dir }}"
+      loop:
+        - networks-prepare.yaml
+      become: yes
+  when: sdwan_labels is defined
+
+- name: start cnf
+  block:
+    - name: copy Helm chart to the master node
+      copy:
+        src: "{{ role_path }}/charts/sdewan-cnf"
+        dest: "{{ sdewan_helm_charts_dir }}"
+        mode: preserve
+      become: yes
+
+    - name: rename cnf file
+      command:
+        mv "{{ sdewan_helm_charts_dir }}/sdewan-cnf/templates/{{ item.src }}"
+           "{{ sdewan_helm_charts_dir }}/sdewan-cnf/templates/{{ item.dest }}"
+      loop:
+        - src: "cm.yaml.j2"
+          dest: "cm.yaml"
+        - src: "deployment.yaml.j2"
+          dest: "deployment.yaml"
+        - src: "secret.yaml.j2"
+          dest: "secret.yaml"
+      become: yes
+
+    - name: set nodeSelector label
+      lineinfile:
+        dest: "{{ sdewan_helm_charts_dir }}/sdewan-cnf/templates/deployment.yaml"
+        regexp: "^(.*)nodeSelector:"
+        line: "      nodeSelector: {{ sdwan_labels }}"
+        state: present
+      become: yes
+
+    - name: rename cnf files name
+      command:
+        mv "{{ sdewan_helm_charts_dir }}/sdewan-cnf/{{ item.src }}"
+           "{{ sdewan_helm_charts_dir }}/sdewan-cnf/{{ item.dest }}"
+      loop:
+        - src: "Chart.yaml.j2"
+          dest: "Chart.yaml"
+        - src: "cnf_cert.yaml.j2"
+          dest: "cnf_cert.yaml"
+        - src: "namespace.yml.j2"
+          dest: "namespace.yml"
+      become: yes
+
+    - name: get host name
+      command: hostname
+      register: name
+      become: yes
+
+    - name: keep record of host name
+      set_fact:
+        host_name: "{{ name.stdout }}"
+      become: yes
+
+    - name: set label
+      command: "kubectl label nodes {{ host_name }} {{ item.key }}={{ item.value }} --overwrite"
+      with_dict:
+       - "{{ sdwan_labels }}"
+      become: yes
+
+    - name: set host name
+      lineinfile:
+        dest: "{{ sdewan_helm_charts_dir }}/sdewan-cnf/pre-install.sh"
+        regexp: "^CNF_NODE"
+        line: CNF_NODE={{ host_name }}
+        state: present
+        mode: a=rwx
+      become: yes
+
+    - name: set proxy for cnf build
+      lineinfile:
+        dest: "{{ sdwan_cnf_path }}/set_proxy"
+        regexp: "^(.*)docker_proxy"
+        line: "docker_proxy={{ git_http_proxy }}"
+        state: present
+      become: yes
+
+    - name: change mode for build file
+      file:
+        path: "{{ sdwan_cnf_path }}/build_image.sh"
+        mode: a=rwx
+      become: yes
+
+    - name: build cnf image  # noqa command-instead-of-shell
+      shell: ./build_image.sh
+      args:
+        chdir: "{{ sdwan_cnf_path }}"
+      register: result
+      retries: 2
+      until: result is succeeded
+      delay: "{{ sdwan_retry_delay }}"
+      become: yes
+
+    - name: create namespace and certificate
+      command: kubectl apply -f {{ item }}
+      args:
+         chdir: "{{ sdewan_helm_charts_dir }}/sdewan-cnf"
+      loop:
+        - namespace.yml
+        - cnf_cert.yaml
+      become: yes
+
+    - name: run pre-install  # noqa command-instead-of-shell
+      shell: ./pre-install.sh
+      args:
+        chdir: "{{ sdewan_helm_charts_dir }}/sdewan-cnf"
+      become: yes
+
+    - name: create cnf password
+      shell: echo $RANDOM|md5sum|cut -c 1-8
+      register: cnf_password
+      become: yes
+
+    - name: set cnf password
+      set_fact:
+        sdwan_cnf_password: "{{ cnf_password.stdout }}"
+      become: yes
+  when: sdwan_labels is defined

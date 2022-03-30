@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+pip2_version: "20.3.4"
+pip3_version: "21.3.1"
+python2_wheel_version: "0.34.2"
+python2_setuptools_version: "44"
+python3_wheel_version: "0.37.1"
+python3_setuptools_version: "60"
+
+os_yum_exclude_rpm_packages: "exclude=kernel*"
+os_remove_yum_plugins: true
+
+# RedHat repositories
+
+# EPEL repository will also be enabled when
+# IUS repository or PowerTools repository is enabled
+epel_repository_enabled: true
+ius_repository_enabled: true  # RedHat 7 only
+powertools_repository_enabled: true  # RedHat 8 only
+elrepo_repository_enabled: true
+# Codeready Linux Builder Repository will also be enabled when
+# IUS repository or PowerTools repository or EPEL repository is enabled
+codeready_linux_builder_repository_enabled: true  # RedHat 8 only
+centos_vault_repository_enabled: true
+centos7_vaults: []

@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020-2021 Intel Corporation
+
+---
+# Playbook for single node Network Edge cluster deployment
+
+- hosts: edgenode_group
+  pre_tasks:
+    - name: set node name
+      set_fact: node_name={{ ansible_nodename | lower }}
+    - name: create helper variable
+      set_fact:
+        single_node_deployment: true
+    - name: check deployment settings
+      include_tasks: ./tasks/settings_check_ne.yml
+    - name: check deployment settings for single node deployment
+      include_tasks: ./tasks/settings_check_ne_single_node.yml
+    - name: print deployment settings
+      include_tasks: ./tasks/print_vars.yml
+    - name: Set global variables for baseline ansible
+      set_fact:
+        project_user: "{{ ansible_user }}"
+  handlers:
+    - import_tasks: "{{ playbook_dir }}/tasks/reboot_server.yml"
+  roles:
+    - role: infrastructure/setup_baseline_ansible
+    - role: infrastructure/build_noproxy
+    - role: baseline_ansible/infrastructure/os_proxy
+    - role: baseline_ansible/infrastructure/time_setup_ntp
+      when: ntp_enable | default(False)
+    - role: infrastructure/os_setup
+    - role: infrastructure/check_redeployment
+    - role: baseline_ansible/infrastructure/install_rt_package
+      when: kernel_rt_enable | default(False)
+    - role: infrastructure/install_hwe_kernel
+    - role: baseline_ansible/infrastructure/configure_sriov_kernel_flags
+      when: "iommu_enabled | default(True)"
+    - role: baseline_ansible/infrastructure/configure_hugepages
+      when: "hugepages_enabled | default(False)"
+    - role: baseline_ansible/infrastructure/configure_cpu_idle_driver
+      when: "cpu_idle_driver_setup_enabled | default(False)"
+    - role: baseline_ansible/infrastructure/configure_cpu_isolation
+      when: "isolcpus_enabled | default(False)"
+    - role: baseline_ansible/infrastructure/configure_additional_grub_parameters
+      when: "additional_grub_parameters_enabled | default(False)"
+    - role: infrastructure/conditional_reboot
+    - role: infrastructure/e810_driver_update
+      when: e810_driver_enable | default(False)
+    - role: infrastructure/provision_sgx_enabled_platform
+      when: sgx_enabled | default(False)
+
+    - role: baseline_ansible/infrastructure/install_golang
+      golang_additional_exports:
+        - "export GOPRIVATE=github.com/smart-edge-open"
+
+    - role: infrastructure/git_repo_tool
+      when: "platform_attestation_controller | default(False) or platform_attestation_node | default(False)"
+
+    - role: infrastructure/docker
+
+- hosts: controller_group
+  pre_tasks:
+    - name: set node name
+      set_fact: node_name={{ ansible_nodename | lower }}
+    - name: create helper variable
+      set_fact:
+        single_node_deployment: true
+  handlers:
+    - import_tasks: "{{ playbook_dir }}/tasks/reboot_server.yml"
+  roles:
+    - role: infrastructure/setup_baseline_ansible
+    - role: infrastructure/build_noproxy
+    - role: kubernetes/install
+    - role: kubernetes/customize_kubelet
+    - role: kubernetes/controlplane
+    - role: kubernetes/helm
+    - role: kubernetes/cni
+    - role: kubernetes/cert_manager
+    - role: kubernetes/harbor_registry/controlplane
+      when: "harbor_registry_enable | default(True)"
+    - role: kubernetes/create_namespaces
+    - role: kubernetes/default_netpol
+    - role: kubernetes/nfd
+      when: ne_nfd_enable | default(True)
+    - role: kubernetes/sgx_device_plugin
+      when: sgx_enabled | default(True)
+
+    - role: infrastructure/device_sriov_detection
+      when: "sriov_network_operator_enable and sriov_network_operator_configure_enable and sriov_network_detection_application_enable | default(True)"
+    - role: baseline_ansible/kubernetes/operator/sriov_network_operator/prepare_node
+      reference_host: "{{ groups['controller_group'][0] }}"
+      when: "sriov_network_operator_enable | default(False)"
+    - role: baseline_ansible/kubernetes/operator/sriov_network_operator/install
+      when: "sriov_network_operator_enable | default(False)"
+    - role: baseline_ansible/kubernetes/operator/sriov_network_operator/configure
+      when: "sriov_network_operator_enable and sriov_network_operator_configure_enable | default(False)"
+
+- name: Provision security components
+  import_playbook: playbooks/security.yml
+
+- name: Provision telemetry components
+  import_playbook: playbooks/telemetry.yml
+  when: telemetry_enable | default(True)

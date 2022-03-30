@@ -1,0 +1,40 @@
+{% if item.rules %}
+{% for i in item.rules %}
+{% if i.type == "dnat" %}
+# INTEL CONFIDENTIAL
+#
+# Copyright 2021-2021 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+---
+
+apiVersion: batch.sdewan.akraino.org/v1alpha1
+kind: FirewallDNAT
+metadata:
+  name: firewalldnat
+  namespace: cnf
+  labels:
+    sdewanPurpose: {{ item.name }}
+spec:
+  src: {{ i.provider }}
+{% if i.network is defined %}
+  src_ip: {{ i.network }}
+{% endif %}
+{% if i.from is defined %}
+    src_dip: {{ i.from }}
+{% else %}
+  src_dip: {{ over_lay_ip }}
+{% endif %}
+  dest_ip: {{ i.ingress }}
+  proto: all
+  target: DNAT
+{% endif %}
+{% endfor %}
+{% endif %}

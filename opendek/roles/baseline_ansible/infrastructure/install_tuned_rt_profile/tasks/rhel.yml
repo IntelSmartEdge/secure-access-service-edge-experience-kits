@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+
+---
+- name: install dependencies
+  include_role:
+    name: infrastructure/install_dependencies
+  when:
+    - not (install_custom_tuned | default(false))
+
+- name: set tuned profile
+  set_fact:
+    tuned_profile: "{{ tuned_profile_centos7 if (ansible_distribution == 'CentOS' and ansible_distribution_version < '8') else tuned_profile_common }}"
+
+- name: install tuned on 7.x
+  package:
+    name: "tuned{{ '-'+tuned_version if tuned_version != '*' else '' }}"
+    allow_downgrade: true
+    state: present
+  become: yes
+  when:
+    - ansible_distribution in ["RedHat", "CentOS"]
+    - ansible_distribution_version < '8'
+    - not (install_custom_tuned | default(false))
+
+- name: install custom tuned packages on 7.x
+  yum:
+    name: "{{ tuned_centos79_packages | join(',') }}"
+    state: present
+    allow_downgrade: yes
+  when:
+    - ansible_distribution in ["RedHat", "CentOS"]
+    - ansible_distribution_version < '8'
+    - install_custom_tuned | default(false)
+  become: yes
+
+- name: validate isolcpus settings
+  assert:
+    that: isolcpus | length > 0
+    fail_msg: "CPU isolation enabled, but list of CPUs to isolate is not defined, make sure that 'isolcpus' variable is set"
+  when: isolcpus_enabled | default(false)
+
+- name: remove isolated cpus from /etc/tuned/{{ tuned_profile }}-variables.conf
+  lineinfile:
+    dest: /etc/tuned/{{ tuned_profile }}-variables.conf
+    regexp: "^isolated_cores=(.*?)$"
+    line: "isolated_cores="
+  become: yes
+  when: not (isolcpus_enabled | default(false))
+  notify:
+    - activate tuned profile
+
+- name: put isolated cpus in /etc/tuned/{{ tuned_profile }}-variables.conf
+  lineinfile:
+    dest: /etc/tuned/{{ tuned_profile }}-variables.conf
+    regexp: "^isolated_cores=(.*?)$"
+    line: "isolated_cores={{ isolcpus }}"
+  become: yes
+  when: isolcpus_enabled | default(false)
+  notify:
+    - activate tuned profile

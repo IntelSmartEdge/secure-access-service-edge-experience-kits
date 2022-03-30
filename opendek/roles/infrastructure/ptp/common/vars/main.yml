@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+
+---
+ptp_open_ports:
+  - 319/udp
+  - 320/udp
+
+install_dependencies:
+  Debian:
+    - patch
+  RedHat:
+    - patch

@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: ovn4nfv
+  name: ovn4nfv-cni
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: ovn4nfv
+        env:
+        - name: "HTTP_PROXY"
+          value: {{ proxy_env['http_proxy'] | default("") }}
+        - name: "HTTPS_PROXY"
+          value: {{ proxy_env['https_proxy'] | default("") }}
+        - name: "http_proxy"
+          value: {{ proxy_env['http_proxy'] | default("") }}
+        - name: "https_proxy"
+          value: {{ proxy_env['https_proxy'] | default("") }}
+        - name: "no_proxy"
+          value: {{ proxy_env['no_proxy'] | default("") }}
+        - name: "NO_PROXY"
+          value: {{ proxy_env['no_proxy'] | default("") }}
+        - name: "ftp_proxy"
+          value: {{ proxy_env['ftp_proxy'] | default("") }}
+        - name: "FTP_PROXY"
+          value: {{ proxy_env['ftp_proxy'] | default("") }}

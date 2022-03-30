@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+
+---
+
+- name: find docker audit files
+  stat:
+    path: "{{ item }}"
+  loop: "{{ _docker_audit_files }}"
+  register: stats
+
+- name: add audit rules for docker
+  lineinfile:
+    path: /etc/audit/rules.d/docker.rules
+    line: "-w {{ item.item }} -k docker"
+    mode: a=rw
+    create: true
+  become: yes
+  when: item.stat.exists
+  loop: "{{ stats.results }}"
+  notify:
+    - restart auditd

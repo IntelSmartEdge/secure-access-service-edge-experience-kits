@@ -1,0 +1,85 @@
+# INTEL CONFIDENTIAL
+#
+# Copyright 2021-2021 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+---
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: sdewan-system/sdewan-serving-cert
+  creationTimestamp: null
+  name: sdewan-validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: sdewan-webhook-service
+      namespace: {{ .Values.namespace }}
+      path: /validate-sdewan-bucket-permission
+  failurePolicy: Fail
+  name: validate-sdewan-bucket.akraino.org
+  rules:
+  - apiGroups:
+    - batch.sdewan.akraino.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - mwan3policies
+    - mwan3rules
+    - firewallzones
+    - firewallforwardings
+    - firewallrules
+    - firewallsnats
+    - firewalldnats
+    - cnfservice
+    - cnfstatuses
+    - sdewanapplication
+    - ipsecproposals
+    - ipsechosts
+    - ipsecsites
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: sdewan-webhook-service
+      namespace: {{ .Values.namespace }}
+      path: /validate-label
+  failurePolicy: Fail
+  name: validate-label.akraino.org
+  rules:
+  - apiGroups:
+    - apps
+    - batch.sdewan.akraino.org
+    apiVersions:
+    - v1
+    - v1alpha1
+    operations:
+    - UPDATE
+    resources:
+    - deployments
+    - mwan3policies
+    - mwan3rules
+    - firewallzones
+    - firewallforwardings
+    - firewallrules
+    - firewallsnats
+    - firewalldnats
+    - cnfservice
+    - cnfstatuses
+    - sdewanapplication
+    - ipsecproposals
+    - ipsechosts
+    - ipsecsites

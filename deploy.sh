@@ -1,0 +1,1 @@
+opendek/deploy.sh

@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+
+---
+# Source variables from controlplane role
+- name: Source controlplane variables
+  include_vars: "{{ role_path }}/../controlplane/defaults/main.yml"
+
+- name: Create directory for certs
+  file:
+    state: directory
+    path: "/etc/docker/certs.d/{{ _registry_ip_address }}:{{ _registry_port }}"
+    mode: a=r,u+w
+  become: yes
+
+- name: Download certificate for Harbor registry
+  get_url:
+    use_proxy: false
+    validate_certs: false
+    url: https://{{ _registry_ip_address }}:{{ _registry_port }}/api/{{ harbor_api_version }}/systeminfo/getcert
+    mode: a=r,u+w
+    force: true
+    dest: /etc/docker/certs.d/{{ _registry_ip_address }}:{{ _registry_port }}/ca.crt
+  become: yes
+
+- name: Extract admin password
+  command: kubectl get secret --namespace harbor harbor-admin -o jsonpath="{.data.admin-password}"
+  register: harbor_password_cmd
+  delegate_to: "{{ groups['controller_group'][0] }}"
+  changed_when: false
+
+- name: store admin password
+  set_fact:
+    harbor_admin_password: "{{ harbor_password_cmd.stdout | b64decode }}"
+    
+- name: Log into Harbor registry
+  command: docker login {{ _registry_ip_address }}:{{ _registry_port }} -u admin -p {{ harbor_admin_password }}
+  changed_when: false

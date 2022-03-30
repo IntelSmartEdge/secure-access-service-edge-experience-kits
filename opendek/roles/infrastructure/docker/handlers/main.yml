@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2019 Intel Corporation
+
+---
+- name: enable and start docker service
+  systemd:
+    name: docker
+    enabled: true
+    masked: false
+    state: restarted
+    daemon_reload: true
+  become: yes
+
+- name: restart auditd
+  command: service auditd restart
+  become: yes
+  changed_when: true
+  args:
+    warn: false

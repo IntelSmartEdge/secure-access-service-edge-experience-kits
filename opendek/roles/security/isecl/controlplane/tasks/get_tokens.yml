@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+---
+- name: Get global admin bearer token
+  uri:
+    method: POST
+    url: "https://{{ isecl_control_plane_ip }}:30444/aas/v1/token"
+    headers:
+      Content-Type: application/json
+      Accept: application/jwt
+    body:
+      username: "{{ isecl_users_global_admin_username }}"
+      password: "{{ isecl_users_global_admin_password }}"
+    body_format: json
+    validate_certs: no
+    return_content: yes
+    status_code:
+      - 200
+  register: global_admin_bearer_token_req
+  until: global_admin_bearer_token_req is not failed
+  retries: 10
+  delay: 10
+
+- name: Set bearer tokens
+  set_fact:
+    isecl_global_admin_bearer_token: "{{ global_admin_bearer_token_req.content }}"
+

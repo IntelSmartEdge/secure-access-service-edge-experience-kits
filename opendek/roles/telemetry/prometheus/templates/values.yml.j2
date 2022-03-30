@@ -1,0 +1,179 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020-2022 Intel Corporation
+
+---
+defaultRules:
+  create: false
+# Alertmanager options (Not present in DEK)
+alertmanager:
+  enabled: false
+# Grafana is deployed as a separate chart
+grafana:
+  enabled: false
+# KubeApiServer: disable for now
+kubeApiServer:
+  enabled: false
+# Kubelet metrics
+kubelet:
+  enabled: false
+# Kube controller manager
+kubeControllerManager:
+  enabled: false
+# CoreDNS
+coreDns:
+  enabled: false
+# Kube ETCD
+kubeEtcd:
+  enabled: false
+# Kube Scheduler
+kubeScheduler:
+  enabled: false
+# Kube Proxy
+kubeProxy:
+  enabled: false
+# Kube state metrics
+kubeStateMetrics:
+  enabled: true
+# Node Exporter
+nodeExporter:
+  enabled: false # We already have node-exporter installation in separate chart
+
+
+fullnameOverride: "prometheus" # do not use kube-prometheus-stack
+
+# Prometheus Operator
+prometheusOperator:
+  enabled: true
+  # Use TLS
+  tls:
+    enabled: true
+  # Configure admission Webhooks (validating manifests)
+  admissionWebhooks:
+    enabled: true
+    patch:
+      enabled: false
+    certManager:
+      enabled: true
+      issuerRef:
+        name: "ca-issuer"
+        kind: "ClusterIssuer"
+  serviceMonitor:
+    selfMonitor: true
+
+  prometheusConfigReloader:
+    image:
+      repository: quay.io/prometheus-operator/prometheus-config-reloader
+      tag: "{{ _prometheus_config_reloader_version }}"
+
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+  # Prometheus Operator should deploy on master node
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ''
+
+prometheus:
+  enabled: true
+  # Prometheus service options
+  service:
+    annotations: {}
+    labels: {}
+    clusterIP: ""
+    {% if telemetry_prometheus_nodeport_expose %}
+    type: NodePort
+    nodePort: {{ telemetry_prometheus_nodeport }}
+    {% endif %}
+
+  serviceMonitor:
+    selfMonitor: true
+    scheme: HTTPS
+    tlsConfig:
+      keySecret:
+        key: tls.key
+        name: "{{ _prometheus_tls_secret_name }}"
+      ca:
+        secret:
+          key: ca.crt
+          name: "{{ _prometheus_tls_secret_name }}"
+      cert:
+        secret:
+          key: tls.crt
+          name: "{{ _prometheus_tls_secret_name }}"
+      insecureSkipVerify: true # Prometheus should trust itself
+    relabelings:
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - sourceLabels: [__meta_kubernetes_pod_name]
+        regex: 'prometheus.*'
+        action: keep
+      - sourceLabels: [__address__]
+        regex: '.*:.*'
+        action: keep
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        action: replace
+        targetLabel: instance
+      - sourceLabels: [__meta_kubernetes_pod_name]
+        action: replace
+        targetLabel: kubernetes_pod_name
+
+  # Prometheus server options
+  prometheusSpec:
+    # How often should Prometheus scrape data
+    scrape_interval: "{{ telemetry_prometheus_scrape_interval_seconds }}s"
+    scrape_timeout: 5s
+    # How long should Prometheus keep metrics
+    retention: "{{ telemetry_prometheus_retention }}"
+    image:
+      repository: quay.io/prometheus/prometheus
+      tag: "{{ _prometheus_image_version }}"
+    web:
+      tlsConfig:
+        keySecret:
+          key: tls.key
+          name: "{{ _prometheus_tls_secret_name }}"
+        client_ca:
+          secret:
+            key: ca.crt
+            name: "{{ _prometheus_tls_secret_name }}"
+        cert:
+          secret:
+            key: tls.crt
+            name: "{{ _prometheus_tls_secret_name }}"
+        clientAuthType: RequestClientCert
+    remoteWrite: {{ telemetry_prometheus_remote_write_targets }}
+    storageSpec:
+      volumeClaimTemplate:
+        metadata:
+          name: "prometheus-volume"
+        spec:
+          storageClassName: prometheus
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+          selector: {}
+    initContainers:
+      - name: setup-permissions
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
+        volumeMounts:
+          - name: "prometheus-volume"
+            mountPath: /data
+        command: ["/bin/chmod","-R","777", "/data"]
+    externalLabels:
+      clusterName: "{{ hostvars[groups['controller_group'][0]]["cluster_name"] }}"
+
+    tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+    # Prometheus should deploy on master node
+    nodeSelector:
+      node-role.kubernetes.io/control-plane: ''
+
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+
+_docker_os_dependencies: "device-mapper-persistent-data,lvm2,moreutils,jq"
+
+# docker-compose is installed using pip with requirements file
+_docker_requirements_file: "requirements_centos7.txt"

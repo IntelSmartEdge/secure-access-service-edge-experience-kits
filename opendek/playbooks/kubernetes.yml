@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2019-2021 Intel Corporation
+
+---
+# Playbook for Network Edge deployment
+- hosts: controller_group
+  any_errors_fatal: true
+
+  roles:
+    - role: kubernetes/install
+    - role: kubernetes/customize_kubelet
+    - role: kubernetes/controlplane
+    - role: kubernetes/helm
+    - role: kubernetes/cni
+    - role: kubernetes/cert_manager
+    - role: kubernetes/harbor_registry/controlplane
+      when: "harbor_registry_enable | default(True)"
+    - role: kubernetes/create_namespaces
+    - role: kubernetes/default_netpol
+    - role: kubernetes/sgx_device_plugin
+      when: sgx_enabled | default(False)
+    - role: kubernetes/nfd
+      when: "ne_nfd_enable | default(True)"
+
+- hosts: edgenode_group
+  any_errors_fatal: true
+  roles:
+    - role: kubernetes/install
+    - role: kubernetes/customize_kubelet
+    - role: kubernetes/node
+    - role: kubernetes/harbor_registry/node
+      when: "harbor_registry_enable | default(True)"
+    - role: kubernetes/cni
+
+    - role: baseline_ansible/kubernetes/operator/sriov_network_operator/prepare_node
+      reference_host: "{{ groups['controller_group'][0] }}"
+      when: "sriov_network_operator_enable | default(False)"
+
+    # ESP is executing deployment sequentially: first controller node then worker node.
+    # The kubernetes/operators role wraps SRIOV network and FEC operators.
+    # The kubernetes/operators role must be run on controller, but after node is ready.
+    # It is delegated from worker to controller and should be run only once in case more worker nodes in configuration.
+    - role: kubernetes/operators
+      delegate_to: "{{ groups['controller_group'][0] }}"
+      run_once: true

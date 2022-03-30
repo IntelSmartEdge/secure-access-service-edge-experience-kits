@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2019-2020 Intel Corporation
+
+---
+
+- name: copy biosfw plugin to dir with executables
+  copy:
+    src: "{{ playbook_dir }}/scripts/kubectl-biosfw"
+    dest: "{{ _biosfw_plugin_dest }}"
+    mode: a=rx,u+w
+  become: yes

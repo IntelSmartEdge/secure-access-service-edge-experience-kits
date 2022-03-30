@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+
+- name: Check if ptp4l and pch2sys processes exist
+  shell: set -o pipefail && ps -d | grep {{ item }}
+  loop:
+  - ptp4l
+  - phc2sys
+  register: ps_results
+  changed_when: true
+  failed_when: false
+  become: yes
+
+- name: Verify ps output
+  set_fact:
+    _ptp4l_phc2sys_on: true
+  when: item.stdout_lines | length > 0
+  loop: "{{ ps_results.results }}"
+  changed_when: true

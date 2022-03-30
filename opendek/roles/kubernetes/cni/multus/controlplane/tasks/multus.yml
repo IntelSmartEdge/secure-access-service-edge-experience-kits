@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2019-2021 Intel Corporation
+
+---
+
+- name: Check if multus exist
+  shell: set -o pipefail && kubectl get pods -n kube-system -l app=multus | wc -l
+  changed_when: false
+  register: get_multus
+  failed_when: get_multus.rc | int > 1
+
+- name: Deploy Multus-cni
+  block:
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: multus
+      register: tmp_dir
+  
+    - name: pull multus image
+      docker_image:
+        name: "{{ _multus_image_name }}"
+        tag: "{{ _multus_image_tag }}"
+        source: pull
+
+    - name: tag multus image and push to Harbor registry
+      docker_image:
+        name: "{{ _multus_image_name }}"
+        repository: "{{ _registry_ip_address }}:{{ _registry_port }}/intel/multus"
+        tag: "{{ _multus_image_tag }}"
+        push: true
+        source: local
+      register: result
+      retries: "{{ harbor_timeout_min }}"
+      until: result is succeeded
+      delay: 60
+
+    - name: remove local image
+      docker_image:
+        state: absent
+        name: "{{ _multus_image_name }}"
+        tag: "{{ _multus_image_tag }}"
+    
+    - name: download multus deployment file
+      get_url:
+        url: "{{ _multus_cni_url }}/multus-daemonset-crio.yml"
+        dest: "{{ tmp_dir.path }}/multus-daemonset-crio.yml"
+      register: result
+      retries: "{{ number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ retry_delay }}"
+        
+    - name: Copy files
+      copy:
+        src: "multus-cni/"
+        dest: "{{ tmp_dir.path }}"
+        mode: preserve
+      
+    - name: create kustomization files from templates
+      template:
+        src: "{{ item }}.j2"
+        dest: "{{ tmp_dir.path }}/{{ item }}"
+        mode: preserve
+      loop:
+        - ds-patch.yml
+    
+    - name: Apply files
+      command: "kubectl apply -k {{ tmp_dir.path }}"
+
+    - name: wait for Multus to start
+      command: >
+        kubectl wait --for=condition=ready pod -l app=multus -n kube-system
+        --timeout=300s
+      changed_when: false
+  
+    - name: remove temporary directory
+      file:
+        path: "{{ tmp_dir.path }}"
+        state: absent
+      when: tmp_dir.path is defined
+  
+  when: get_multus.stdout | int == 0

@@ -1,0 +1,158 @@
+# INTEL CONFIDENTIAL
+#
+# Copyright 2022 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+# Pass github.com username and generated personal token for that user
+# (providing only token is not enough, since ESP requires username as well)
+# It is assumed that both repositories (ESP and profiles) are on the same github site,
+# accessible with the same personal token belonging to same user.
+github:
+  user: ''
+  token: ''
+
+esp:
+  url: https://github.com/intel/Edge-Software-Provisioner
+  branch: v2.0.3
+  dest_dir: './esp'
+
+dnsmasq:
+  # enable only if on isolated network, with no other DHCP servers running!
+  # (dnsmasq is required for PXE boot only)
+  enabled: false
+  # Following values are mapped 1:1 to ESP config (if left empty, it will be deduced by the ESP
+  # from current network settings)
+  dhcp_range_minimum: ''      # e.g. 192.168.1.100
+  dhcp_range_maximum: ''      # e.g. 192.168.1.250
+  host_ip: ''                 # e.g. 192.168.1.2
+  network_broadcast_ip: ''    # e.g. 192.168.1.255
+  network_gateway_ip: ''      # e.g. 192.168.1.1
+  # if behind proxy, primary dns should be set to gateway ip!
+  network_dns_primary: ''     # e.g. 8.8.4.4
+  network_dns_secondary: ''   # e.g. 8.8.8.8
+
+docker:
+  # put your local docker mirrors addresses here (to prevent issue with docker limit rate during deploy)
+  registry_mirrors: []
+  # dockerhub credentials - applies only to live os stage
+  dockerhub:
+    username: ""
+    password: ""
+
+# ntp server address used during deploy
+ntp_server: ''
+
+# list of profiles (at least one profile should be defined)
+profiles:
+  - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit_Pop
+    url: https://github.com/smart-edge-open/profiles.git
+    branch: smart-edge-open-22.02
+    scenario: single-node       # possible scenarios: single-node, multi-node
+    experience_kit:
+      url: https://github.com/smart-edge-open/secure-access-service-edge-experience-kits
+      branch: smart-edge-open-22.02
+      deployment: pop
+    controlplane_mac: ''
+    account:
+      username: smartedge-open
+      password: smartedge-open
+    # to further customize ansible configuration for each group and each host,
+    # put that config in a form of YAML syntax, under desired group/host section below.
+    group_vars:
+      groups:
+        all:
+# Please change according to the document
+#          sgx_enabled: true
+#          sgx_pccs_ip:
+#          sgx_pccs_port: "32666"
+#          sgx_use_secure_cert: false
+#          pccs_user_token:
+#          pccs_api_key:
+#          pccs_user_password:
+#          pccs_admin_password:
+#          platform_attestation_node: true
+#          isecl_cms_tls_hash:
+#          isecl_control_plane_ip:
+#          proxy_env:
+#            http_proxy: http://proxy.example.com:[port]
+#            https_proxy: http://proxy.example.com:[port]
+#            all_proxy: socks5://proxy.example.com:[port]
+        controller_group:
+        edgenode_group:
+    sideload:
+      # If extra file has to be used in the process of deployment and copied to provisioned machine, point to it here.
+      # It should be list of items eg.
+      # - file_path: "/root/syscfg_package.zip"
+      #   dest_path: "/opt/seo/biosfw/"
+    # Define additional inventory groups where hosts belong to.
+    # Note: some Experience Kits require to provide at least a group name with no hosts.
+
+  - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit_Edge
+    url: https://github.com/smart-edge-open/profiles.git
+    branch: smart-edge-open-sase-22.02
+    scenario: single-node       # possible scenarios: single-node, multi-node
+    experience_kit:
+      url: https://github.com/smart-edge-open/secure-access-service-edge-experience-kits
+      branch: smart-edge-open-sase-22.02
+      deployment: edge
+    controlplane_mac: ''
+    account:
+      username: smartedge-open
+      password: smartedge-open
+    # to further customize ansible configuration for each group and each host,
+    # put that config in a form of YAML syntax, under desired group/host section below.
+    group_vars:
+      groups:
+        all:
+# Please change according to the document
+#          sgx_enabled: true
+#          sgx_pccs_ip:
+#          sgx_pccs_port: "32666"
+#          sgx_use_secure_cert: false
+#          pccs_user_token:
+#          pccs_api_key:
+#          pccs_user_password:
+#          pccs_admin_password:
+#          platform_attestation_node: true
+#          isecl_cms_tls_hash:
+#          isecl_control_plane_ip:
+#          proxy_env:
+#            http_proxy: http://proxy.example.com:[port]
+#            https_proxy: http://proxy.example.com:[port]
+#            all_proxy: socks5://proxy.example.com:[port]
+        controller_group:
+        edgenode_group:
+    sideload:
+      # If extra file has to be used in the process of deployment and copied to provisioned machine, point to it here.
+      # It should be list of items eg.
+      # - file_path: "/root/syscfg_package.zip"
+      #   dest_path: "/opt/seo/biosfw/"
+    # Define additional inventory groups where hosts belong to.
+    # Possible host names: controller, node01
+    # Note: some Experience Kits require to provide at least a group name with no hosts.
+
+#please change according to document
+#
+#bios:
+#  tpm: true
+#  secure_boot: true
+
+#bmc:
+#  address:
+#  user:
+#  password:
+
+
+usb_images:
+  build: true             # change to false to disable any USB image building
+  bios: false             # enable building image in legacy bios format
+  efi: true               # enable building image in uefi format
+  all_in_one: false       # enable single image per BIOS with all of the profiles included
+  output_path: './out'    # dir where built images will be copied to

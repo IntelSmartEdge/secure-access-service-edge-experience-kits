@@ -1,0 +1,51 @@
+# INTEL CONFIDENTIAL
+#
+# Copyright 2021-2021 Intel Corporation.
+#
+# This software and the related documents are Intel copyrighted materials, and your use of
+# them is governed by the express license under which they were provided to you ("License").
+# Unless the License provides otherwise, you may not use, modify, copy, publish, distribute,
+# disclose or transmit this software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express or implied warranties,
+# other than those that are expressly stated in the License.
+
+{% for item in networks %}
+
+---
+
+apiVersion: k8s.plugin.opnfv.org/v1alpha1
+{% if item.providerNetType is defined and item.providerNetType == 'NONE' %}
+kind: Network
+{% else %}
+kind: ProviderNetwork
+{% endif %}
+metadata:
+  name: {{ item.networkname }}
+spec:
+  cniType: ovn4nfv
+  ipv4Subnets:
+  - subnet: {{ item.subnet}}
+    name: {{ item.subnname}}
+    gateway: {{ item.gateway }}
+    excludeIps: {{ item.excludeIps }}
+{% if item.providerInterfaceName is defined %}
+  providerNetType: {{ item.providerNetType }}
+{% endif %}
+{% if item.providerNetType == 'DIRECT' %}
+  direct:
+    providerInterfaceName: {{ item.providerInterfaceName }}
+    directNodeSelector: all
+{% elif item.providerNetType == 'VLAN' %}
+  vlan:
+    vlanId: "{{ item.vlanId | default(0) }}"
+    providerInterfaceName: {{ item.providerInterfaceName }}
+{% if item.logicalInterfaceName is defined %}
+    logicalInterfaceName: {{ item.logicalInterfaceName }}
+{% else %}
+    logicalInterfaceName: eth.{{ item.vlanId }}
+{% endif %}
+    vlanNodeSelector: all
+{% endif %}
+
+{% endfor %}

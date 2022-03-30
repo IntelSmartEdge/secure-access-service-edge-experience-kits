@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2019-2021 Intel Corporation
+
+---
+_kubernetes_version: "1.23.3"
+
+_kubernetes_repository_url: ""
+_kubernetes_repository_keys: []
+
+_kubernetes_ver_separator: "-"
+_kubernetes_ver_suffix: ""
+
+_kubernetes_packages:
+  - "kubelet{{ _kubernetes_ver_separator }}{{ _kubernetes_version }}{{ _kubernetes_ver_suffix }}"
+  - "kubeadm{{ _kubernetes_ver_separator }}{{ _kubernetes_version }}{{ _kubernetes_ver_suffix }}"
+  - "kubectl{{ _kubernetes_ver_separator }}{{ _kubernetes_version }}{{ _kubernetes_ver_suffix }}"
+
+etcd_ports_enable: false

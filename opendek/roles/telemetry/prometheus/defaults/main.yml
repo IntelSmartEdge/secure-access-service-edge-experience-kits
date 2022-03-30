@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+_pv_dir: "{{ _persistent_volumes_dest }}/prometheus"
+_pv_name: prometheus-volume
+
+_prometheus_release_name: prometheus
+_prometheus_image_version: v2.32.1
+_prometheus_helm_repo:
+  url: https://prometheus-community.github.io/helm-charts
+  version: "33.1.0"
+  name: kube-prometheus-stack
+
+_prometheus_config_reloader_version: v0.55.0
+
+_prometheus_tls_secret_name: prometheus-tls
+_prometheus_tls_names:
+  [
+    "{{ _prometheus_release_name }}",
+    "{{ _prometheus_release_name }}-prometheus",
+  ]
+_prometheus_charts_dir: "{{ ne_helm_charts_default_dir }}/kube-prometheus-stack"
+
+telemetry_prometheus_scrape_interval_seconds: 60
+telemetry_prometheus_retention: 15d
+telemetry_prometheus_remote_write_targets: []
+telemetry_prometheus_nodeport: 30000
+telemetry_prometheus_nodeport_expose: false

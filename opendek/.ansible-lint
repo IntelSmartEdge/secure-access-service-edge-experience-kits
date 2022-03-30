@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+skip_list:
+  - '701'
+  - 'indentation'
+
+exclude_paths:
+  - roles/telemetry/prometheus/files/
+  - roles/telemetry/statsd-exporter/files
+  - roles/kubernetes/dashboard/files
+  - roles/nfd/files/
+  - roles/baseline_ansible
+  - .github/
+  - cloud
+  - inventory.yml

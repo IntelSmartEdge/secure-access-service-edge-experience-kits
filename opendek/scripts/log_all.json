@@ -1,0 +1,11 @@
+{
+    "commands": [
+        "date",
+        "git status",
+        "git diff",
+        "git log -n100"
+    ],
+    "excludePaths": [
+        "^biosfw"
+    ]
+}

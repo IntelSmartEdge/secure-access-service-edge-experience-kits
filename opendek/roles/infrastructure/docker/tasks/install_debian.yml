@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+
+- name: check if Docker repository exists
+  stat:
+    path: /etc/apt/sources.list.d/docker.list
+  register: docker_repo
+
+- name: add Docker repository and clean cache
+  block:
+    - name: remove repo related files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+      - "/usr/share/keyrings/docker-archive-keyring.gpg"
+      - "/etc/apt/sources.list.d/docker.list"
+      changed_when: true
+      become: yes
+    - name: get docker repo gpg  # noqa command-instead-of-module
+      shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
+      args:
+        warn: false
+      changed_when: true
+      become: yes
+    - name: add docker repository
+      shell: >
+        echo
+        "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu
+        $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      changed_when: true
+      become: yes
+
+      # Using cmd to workaround the issue where cache isn't updated using package module
+    - name: update repositories cache
+      apt:
+        update_cache: yes
+      become: yes
+  when: docker_repo.stat.exists == false

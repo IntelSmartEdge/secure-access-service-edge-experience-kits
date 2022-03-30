@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+- name: wait for kube-system pods and get name of Multus pod
+  block:
+  - name: get controller node name
+    command: >
+      kubectl get nodes -l node-role.kubernetes.io/control-plane='' -o jsonpath='{.items[0].metadata.name}'
+    register: controller_node_name
+    changed_when: false
+
+  - name: wait for kube-system pods of the controller to be running
+    command: >
+      kubectl wait --for=condition=Ready pod --namespace=kube-system
+      --field-selector spec.nodeName={{ controller_node_name.stdout }} --timeout=300s
+    changed_when: false 
+
+  - name: wait for kube-system pods of the node to be running
+    command: >
+      kubectl wait --for=condition=Ready pod --namespace=kube-system --field-selector spec.nodeName={{ node_name }}
+      --timeout=300s
+    changed_when: false
+
+  - name: get name of Multus pod on the worker
+    shell: >
+      set -o pipefail &&
+      kubectl get pods --field-selector status.phase=Running -n kube-system
+      --field-selector spec.nodeName={{ node_name }} | awk '/kube-multus-ds-amd64/ {print $1;}'
+    register: nodes_multus_pod
+    changed_when: false
+  delegate_to: "{{ groups['controller_group'][0] }}"
+
+- name: remove '.old' suffix from CNIs conflists so Multus will take it into consideration
+  # shell is required due to glob (*)
+  shell: "{{ 'rename.ul' if ansible_os_family == 'Debian' else 'rename' }} --verbose '.old' '' /etc/cni/net.d/*"
+  changed_when: true
+  register: rename_cnis_cmd
+  failed_when:
+    - rename_cnis_cmd.rc != 0 and rename_cnis_cmd.rc != 4 # 4 - nothing was renamed
+  become: yes
+
+- name: delete Multus pod to recreate 00-multus.conf
+  command: kubectl delete pod -n kube-system {{ nodes_multus_pod.stdout }}
+  register: nodes_multus_pod
+  changed_when: false
+  delegate_to: "{{ groups['controller_group'][0] }}"

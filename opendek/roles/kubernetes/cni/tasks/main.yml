@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+- name: do a precheck
+  include_tasks: precheck.yml
+
+- name: detect machine type and load available roles
+  include_tasks: common.yml
+
+- name: apply main CNI
+  include_role:
+    name: "kubernetes/cni/{{ kubernetes_cnis[0] }}/{{ role_postfix }}"
+  vars:
+    cni_weight: 10
+
+- name: wait for cluster to go into ready state
+  command: kubectl wait --for=condition=Ready node --all --timeout=10m
+  changed_when: false
+  when: "'controller_group' in group_names"
+
+- name: multiple CNIs
+  block:
+    - name: apply meta CNI - multus
+      include_role:
+        name: kubernetes/cni/multus/controlplane
+      when: "'controller_group' in group_names"
+
+    - name: apply remaining CNIs
+      include_role:
+        name: "kubernetes/cni/{{ cni }}/{{ role_postfix }}"
+      loop: "{{ kubernetes_cnis[1:] }}"
+      when: "cni + '/' + role_postfix in available_cni_roles" # run only if 'cni/node_type' is available in the roles/kubernetes/cni/ tree
+      loop_control:
+        loop_var: cni
+        index_var: idx
+      vars:
+        apply_netdef: true
+        cni_weight: "{{ (idx+2) * 10 }}"
+
+    - name: apply meta CNI - multus
+      include_role:
+        name: kubernetes/cni/multus/node
+      when: "'edgenode_group' in group_names"
+  when: kubernetes_cnis|length > 1 or sriov_network_operator_enable
