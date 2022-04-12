@@ -96,11 +96,11 @@ profiles:
 
   - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit_Edge
     url: https://github.com/smart-edge-open/profiles.git
-    branch: smart-edge-open-sase-22.02
+    branch: smart-edge-open-22.02
     scenario: single-node       # possible scenarios: single-node, multi-node
     experience_kit:
       url: https://github.com/smart-edge-open/secure-access-service-edge-experience-kits
-      branch: smart-edge-open-sase-22.02
+      branch: smart-edge-open-22.02
       deployment: edge
     controlplane_mac: ''
     account:
