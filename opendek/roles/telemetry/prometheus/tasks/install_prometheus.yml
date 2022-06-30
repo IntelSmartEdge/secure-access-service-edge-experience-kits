@@ -6,7 +6,7 @@
   include_role:
     name: kubernetes/certs
   vars:
-    tls_secret_name: "{{ _prometheus_tls_secret_name }}"
+    tls_secret_name: "{{ telemetry_prometheus_tls_secret_name }}"
     desired_namespace: "{{ telemetry_namespace }}"
     dns_names: "{{ _prometheus_tls_names }}"
 
@@ -24,6 +24,10 @@
       - --untardir
       - "{{ ne_helm_charts_default_dir }}"
     creates: "{{ _prometheus_charts_dir }}"
+  register: result
+  retries: "{{ number_of_retries }}"
+  until: result is succeeded
+  delay: "{{ retry_delay }}"
 
 - name: create directories for persistent volumes
   file:

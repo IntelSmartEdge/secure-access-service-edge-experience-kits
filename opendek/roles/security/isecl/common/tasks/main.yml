@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2021 Intel Corporation
---- 
+---
 - name: install dependencies
   include_role:
     name: infrastructure/install_dependencies
 
 - name: Install skopeo
-  include_role: 
+  include_role:
     name: infrastructure/install_skopeo
 
 - name: Create isecl folders
-  file: 
+  file:
     path: "{{ item }}"
     state: directory
     mode: a=rx,u+w
@@ -19,16 +19,34 @@
     - "{{ isecl_helm_charts_dir }}"
 
 - name: Init the Isecl git hub repo
-  command: 
+  command:
     chdir: "{{ isecl_build_dir }}"
     cmd: "/usr/local/bin/repo init -u {{ isecl_repo }} -m {{ isecl_repo_manifest }} -b {{ isecl_repo_tag }}"
   changed_when: false
 
 - name: Sync the Isecl git hub repo
-  command: 
+  command:
     chdir: "{{ isecl_build_dir }}"
     cmd: "/usr/local/bin/repo sync"
   changed_when: false
+
+- name: Recreate go.sum in all packages
+  shell:
+    cmd: "source /etc/profile && go mod tidy"
+    chdir: "{{ isecl_build_dir }}/{{ item }}"
+  changed_when: false
+  loop:
+    - intel-secl
+    - k8s-extensions/isecl-k8s-controller
+    - k8s-extensions/isecl-k8s-scheduler
+    - k8s-extensions/admission-controller
+    - trust-agent
+
+- name: Remove problematic call
+  lineinfile:
+    path: "{{ isecl_build_dir }}/k8s-extensions/isecl-k8s-scheduler/Makefile"
+    state: absent
+    regexp: "env GOSUMDB=off GOPROXY=direct go mod download"
 
 - name: Build Isecl components
   make:
@@ -41,4 +59,4 @@
   include_role:
     name: baseline_ansible/kubernetes/custom_namespace
   vars:
-    - _custom_ns: [ "isecl" ]
+    - _custom_ns: ["isecl"]

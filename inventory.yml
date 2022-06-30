@@ -5,7 +5,7 @@
 all:
   vars:
     cluster_name: saseek_test     # NOTE: Use `_` instead of spaces.
-    deployment: edge              # NOTE: Available deployment type: SASE expirience kits Edge (edge) and Pop (pop).
+    deployment: sase              # NOTE: Available deployment type: sase.
     single_node_deployment: true  # Request single node deployment (true/false).
     limit:                        # Limit ansible deployment to certain inventory group or hosts
 controller_group:

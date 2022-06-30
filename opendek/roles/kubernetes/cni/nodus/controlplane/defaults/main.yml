@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+# NOTE: "Nodus" is a new name for CNI previously known as "ovn4nfv".
+# Many Nodus resources still use "ovn4nfv" in naming,
+# that is why "ovn4nfv" is widely seen in this ansible role.
+
+_nodus_version: "4315dc844b2d313e6ae6511a37d9076c2e02a579"
+
+_nodus_cni_url:  "https://raw.githubusercontent.com/akraino-edge-stack/icn-nodus/\
+  {{ _nodus_version }}/deploy/"
+_nodus_plugin_file: "ovn4nfv-k8s-plugin.yaml"
+_ovn_daemon_file: "ovn-daemonset.yaml"
+
+_nodus_image_src: "docker.io/integratedcloudnative/"
+
+_nodus_image_name: "ovn4nfv-k8s-plugin"
+_nodus_image_tag: "v6.0.0"
+
+_ovn_daemon_image_name: "ovn-images"
+_ovn_daemon_image_tag: "v2.3.0"
+
+nodus_cidr: "10.210.0.0/16"
+
+ovn_control_plane_cpu_request: 500m
+ovn_control_plane_memory_request: 300Mi
+ovn_controller_cpu_request: 200m
+ovn_controller_memory_request: 300Mi
+ovn_controller_cpu_limit: 1000m
+ovn_controller_memory_limit: 800Mi
+ovn4nfv_cni_cpu_request: 100m
+ovn4nfv_cni_memory_request: 50Mi
+ovn4nfv_cni_cpu_limit: 100m
+ovn4nfv_cni_memory_limit: 50Mi
+nfn_agent_cpu_request: 100m
+nfn_agent_memory_request: 50Mi
+nfn_agent_cpu_limit: 100m
+nfn_agent_memory_limit: 50Mi
+

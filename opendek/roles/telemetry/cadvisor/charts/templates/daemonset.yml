@@ -38,6 +38,12 @@ spec:
           ports:
             - name: metrics
               containerPort: {{ .Values.proxy.metricsCadvisorPort }}
+          resources:
+            requests:
+              cpu: {{ .Values.cadvisor.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.cadvisor.resources.limits.memory }}
+              cpu: {{ .Values.cadvisor.resources.limits.cpu }}
         - name: {{ .Values.cadvisor.name }}
           args:
             - --port={{ .Values.proxy.internalCadvisorPort }}

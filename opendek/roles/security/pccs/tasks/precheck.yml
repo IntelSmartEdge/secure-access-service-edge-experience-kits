@@ -13,9 +13,4 @@
         msg: "PCCS user password not set! Set `pccs_user_password`."
       when: pccs_user_password is not defined or pccs_user_password | length == 0
 
-    - name: Check if PCCS admin password is set
-      fail:
-        msg: "PCCS admin password not set! Set `pccs_admin_password`."
-      when: pccs_admin_password is not defined or pccs_admin_password | length == 0
-
   when: pccs_enable | default(False)

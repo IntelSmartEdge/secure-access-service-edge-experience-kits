@@ -1,14 +1,29 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2019-2020 Intel Corporation
+# Copyright (c) 2019-2022 Intel Corporation
 
+{% if split_network is defined and split_network %}
 apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: {{ kubernetes_service_host }}
+  bindPort: {{ kubernetes_service_port }}
+---
+{% endif %}
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 kubernetesVersion: v{{ _kubernetes_version }}
 controllerManager:
   extraArgs:
     terminated-pod-gc-threshold: "600"
+    profiling: "false"
 apiServer:
   extraArgs:
+    audit-log-maxage: "30"
+    audit-log-maxbackup: "10"
+    audit-log-maxsize: "100"
+    audit-log-path: /var/log/apiserver-audit.log
+    profiling: "false"
+    request-timeout: "300s"
     event-ttl: "48h0m0s"
     tls-min-version: "VersionTLS12"
     tls-cipher-suites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
@@ -16,3 +31,10 @@ apiServer:
     service-node-port-range: "20000-39999"
 {% endif %}
     feature-gates: "DownwardAPIHugePages=True"
+{% if split_network is defined and split_network %}
+networking:
+  podSubnet: {{ calico_cidr }}
+{% endif %}
+scheduler:
+  extraArgs:
+    profiling: "false"

@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: ovn-networkobj
+  namespace: sdewan-system
+spec:
+  config: '{
+      "cniVersion": "{{ cni_version }}",
+      "type": "ovn4nfvk8s-cni"
+    }'
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: ovn4nfv-k8s-plugin
+  namespace: sdewan-system
+spec:
+  config: '{
+      "cniVersion": "{{ cni_version }}",
+      "type": "ovn4nfvk8s-cni"
+    }'

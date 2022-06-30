@@ -20,6 +20,9 @@
     - name: Set global variables for baseline ansible
       set_fact:
         project_user: "{{ ansible_user }}"
+    - name: check raw drive status
+      include_tasks: ./tasks/disk_check.yml
+      when: rook_ceph_enabled | default(False) or openebs_enabled | default(False) 
   handlers:
     - import_tasks: "{{ playbook_dir }}/tasks/reboot_server.yml"
   roles:
@@ -84,6 +87,8 @@
       when: ne_nfd_enable | default(True)
     - role: kubernetes/sgx_device_plugin
       when: sgx_enabled | default(True)
+    - role: kubernetes/kubevirt
+      when: kubevirt_enable | default(False)
 
     - role: infrastructure/device_sriov_detection
       when: "sriov_network_operator_enable and sriov_network_operator_configure_enable and sriov_network_detection_application_enable | default(True)"
@@ -94,6 +99,12 @@
       when: "sriov_network_operator_enable | default(False)"
     - role: baseline_ansible/kubernetes/operator/sriov_network_operator/configure
       when: "sriov_network_operator_enable and sriov_network_operator_configure_enable | default(False)"
+    - role: kubernetes/rook_ceph
+      when: rook_ceph_enabled | default(False)
+    - role: kubernetes/openebs
+      when: openebs_enabled | default(False)
+    - role: kubernetes/nsm
+      when: "ne_nsm_enable | default(False)"
 
 - name: Provision security components
   import_playbook: playbooks/security.yml

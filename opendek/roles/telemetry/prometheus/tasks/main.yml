@@ -11,3 +11,6 @@
 - name: install Prometheus chart
   include_tasks: install_prometheus.yml
   when: get_release_prometheus.rc != 0
+
+- name: setup additional monitors
+  include_tasks: setup_additional_monitors.yml

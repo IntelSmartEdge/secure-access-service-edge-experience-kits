@@ -10,46 +10,60 @@
 
 - name: Set K8S control plane vars
   set_fact:
-    isecl_k8s_control_plane_ip: "{{ hostvars[inventory_hostname].ansible_default_ipv4.address }}"
+    isecl_k8s_control_plane_ip: "{{ hostvars[inventory_hostname].ansible_host }}"
     isecl_k8s_control_plane_hostname: "{{ hostvars[inventory_hostname].ansible_hostname }}"
 
-- name: Setup helm charts dir
-  include_tasks: ../../common/tasks/setup_helm_chart_dir.yml
+- name: Check if IsecL node components already exist
+  command: helm status twp-csp -n {{ isecl_name_space }}
+  failed_when: false
+  register: isecl_node_components_installed
+  changed_when: false
 
-- name: Setup NFS
-  include_tasks: ../../common/tasks/setup_nfs.yml
+- name: Deploy ISecL node components
+  block:
+    - name: Setup helm charts dir
+      include_tasks: ../../common/tasks/setup_helm_chart_dir.yml
 
-- name: Get tokens
-  include_tasks: get_tokens.yml
+    - name: Setup NFS
+      include_tasks: ../../common/tasks/setup_nfs.yml
+
+    - name: Get tokens
+      include_tasks: get_tokens.yml
     
-- name: Handle TPM endorsment certificate
-  include_tasks: handle_endorsment_cert.yml
+    - name: Handle TPM endorsment certificate
+      include_tasks: handle_endorsment_cert.yml
 
-- name: Create Secrets for ISecL Scheduler TLS Key-pair
-  include_tasks: create_isecl_sched_secrets.yml
+    - name: Create Secrets for ISecL Scheduler TLS Key-pair
+      include_tasks: create_isecl_sched_secrets.yml
 
-- name: Create admission-controller-certs secrets for admission controller deployment
-  include_tasks: create_isecl_admission_ctrl_secrets.yml
+    - name: Create admission-controller-certs secrets for admission controller deployment
+      include_tasks: create_isecl_admission_ctrl_secrets.yml
 
-- name: Generate CA Bundle
-  shell: kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}'
-  register: ca_bundle
-  changed_when: ca_bundle.rc != 0
+    - name: Generate CA Bundle
+      shell: kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}'
+      register: ca_bundle
+      changed_when: ca_bundle.rc != 0
  
-- name: Generate isecl data plane usecase values.yml
-  template:
-    src: isecl-data-plane-values.yaml.j2
-    dest: "{{ isecl_helm_charts_dir }}/usecases/twp-cloud-service-provider/values.yaml"
-    mode: a=rx,u+w
+    - name: Generate isecl data plane usecase values.yml
+      template:
+        src: isecl-data-plane-values.yaml.j2
+        dest: "{{ isecl_helm_charts_dir }}/usecases/twp-cloud-service-provider/values.yaml"
+        mode: a=rx,u+w
 
-- name: Run dependency update
-  command: helm dependency update usecases/twp-cloud-service-provider/
-  args:
-    chdir: "{{ isecl_helm_charts_dir }}"
-  changed_when: false
+    - name: Run dependency update
+      command: helm dependency update usecases/twp-cloud-service-provider/
+      args:
+        chdir: "{{ isecl_helm_charts_dir }}"
+      changed_when: false
 
-- name: Deploy isecl data plane services
-  command: "helm install twp-csp usecases/twp-cloud-service-provider/ -n {{ isecl_name_space }} --create-namespace"
-  args:
-    chdir: "{{ isecl_helm_charts_dir }}"
-  changed_when: false
+    - name: Run modprobe on model specific register
+      command: modprobe msr
+      become: true
+      changed_when: false
+
+    - name: Deploy isecl data plane services
+      command: "helm install twp-csp usecases/twp-cloud-service-provider/ -n {{ isecl_name_space }} --create-namespace"
+      args:
+        chdir: "{{ isecl_helm_charts_dir }}"
+      changed_when: false
+  when: isecl_node_components_installed.rc != 0

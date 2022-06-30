@@ -14,7 +14,7 @@ _prometheus_helm_repo:
 
 _prometheus_config_reloader_version: v0.55.0
 
-_prometheus_tls_secret_name: prometheus-tls
+telemetry_prometheus_tls_secret_name: prometheus-tls
 _prometheus_tls_names:
   [
     "{{ _prometheus_release_name }}",

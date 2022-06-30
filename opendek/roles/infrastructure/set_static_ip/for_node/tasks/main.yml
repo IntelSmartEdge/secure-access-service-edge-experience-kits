@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020-2021 Intel Corporation
+
+---
+
+- name: set static ip
+  include_tasks: "set_static_ip.yml"
+  loop: 
+    - "{{ node_device_mac | flatten(levels=1) }}"
+  loop_control:
+    loop_var: mac_address

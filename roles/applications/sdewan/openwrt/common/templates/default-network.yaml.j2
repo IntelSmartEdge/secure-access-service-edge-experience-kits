@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+{%- for pnet in item.pnets %}
+---
+apiVersion: k8s.plugin.opnfv.org/v1alpha1
+kind: ProviderNetwork
+metadata:
+  name: {{ pnet.network_name }}
+  namespace: sdewan-system
+spec:
+  cniType: ovn4nfv
+  ipv4Subnets:
+  - subnet: {{ pnet.network_cidr }}
+    name: {{ pnet.subnet_name }}
+    gateway: {{ pnet.network_cidr | regex_replace('^(?P<Prefix>([0-9]{1,3}\.){3})[0-9]{1,3}(?P<Mask>(\/([0-9]|[1-2][0-9]|3[0-2]))?)$','\\g<Prefix>1\\g<Mask>') }}
+    excludeIps: {{ pnet.network_cidr | regex_replace('^(?P<Prefix>([0-9]{1,3}\.){3})[0-9]{1,3}(?P<Mask>(\/([0-9]|[1-2][0-9]|3[0-2]))?)$','\\g<Prefix>2\\g<Mask>') }}..{{ pnet.network_cidr | regex_replace('^(?P<Prefix>([0-9]{1,3}\.){3})[0-9]{1,3}(?P<Mask>(\/([0-9]|[1-2][0-9]|3[0-2]))?)$','\\g<Prefix>9\\g<Mask>') }}
+  providerNetType: VLAN
+  vlan:
+    logicalInterfaceName: {{ ansible_default_ipv4.interface }}.{{ pnet.vlanID }}
+    providerInterfaceName: {{ ansible_default_ipv4.interface }}
+    vlanId: "{{ pnet.vlanID }}"
+    vlanNodeSelector: all
+{% endfor -%}
+
+{%- for onet in item.onets %}
+---
+apiVersion: k8s.plugin.opnfv.org/v1alpha1
+kind: Network
+metadata:
+  name: {{ onet.network_name }}
+  namespace: sdewan-system
+spec:
+  # Add fields here
+  cniType: ovn4nfv
+  ipv4Subnets:
+  - subnet: {{ onet.network_cidr }}
+    name: {{ onet.subnet_name }}
+    gateway: {{ onet.network_cidr | regex_replace('^(?P<Prefix>([0-9]{1,3}\.){3})[0-9]{1,3}(?P<Mask>(\/([0-9]|[1-2][0-9]|3[0-2]))?)$','\\g<Prefix>1\\g<Mask>') }}
+    excludeIps: {{ onet.network_cidr | regex_replace('^(?P<Prefix>([0-9]{1,3}\.){3})[0-9]{1,3}(?P<Mask>(\/([0-9]|[1-2][0-9]|3[0-2]))?)$','\\g<Prefix>2\\g<Mask>') }}..{{ onet.network_cidr | regex_replace('^(?P<Prefix>([0-9]{1,3}\.){3})[0-9]{1,3}(?P<Mask>(\/([0-9]|[1-2][0-9]|3[0-2]))?)$','\\g<Prefix>9\\g<Mask>') }}
+{% endfor -%}

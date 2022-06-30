@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+- op: replace
+  path: "/spec/template/spec/containers/0/resources/requests/cpu"
+  value:  "{{ nfn_agent_cpu_request }}"
+- op: replace
+  path: "/spec/template/spec/containers/0/resources/requests/memory"
+  value: "{{ nfn_agent_memory_request }}"
+- op: replace
+  path: "/spec/template/spec/containers/0/resources/limits/cpu"
+  value: "{{ nfn_agent_cpu_limit }}"
+- op: replace
+  path: "/spec/template/spec/containers/0/resources/limits/cpu"
+  value: "{{ nfn_agent_memory_limit }}"
+- op: replace
+  path: "/spec/template/spec/containers/0/image"
+  value: "{{ _nodus_image_src }}{{ _nodus_image_name }}:{{ _nodus_image_tag }}"

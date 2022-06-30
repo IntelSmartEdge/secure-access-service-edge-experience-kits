@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2021 Intel Corporation
+# Copyright (c) 2021-2022 Intel Corporation
 
 ---
 os_base_packages:
@@ -39,6 +39,8 @@ os_base_packages:
     - patch
     - gcc
     - systemtap
+    - linuxptp
+    - httpd-tools
   Debian:
     - curl
     - apt-utils
@@ -78,6 +80,8 @@ os_base_packages:
     - patch
     - gcc
     - systemtap
+    - linuxptp
+    - apache2-utils
 
 
 os_python_packages:
@@ -132,3 +136,4 @@ python_packages:
     - openshift-client
     - openshift
     - testresources
+    - pyopenssl

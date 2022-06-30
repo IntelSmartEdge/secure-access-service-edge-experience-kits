@@ -48,6 +48,7 @@ import tempfile
 import traceback
 import urllib.parse
 
+# pylint: disable=import-error
 import seo.config
 import seo.error
 import seo.git
@@ -56,8 +57,8 @@ import seo.shell
 import seo.yaml
 
 
-_GH_TOKEN_OPT = "--github-token" # nosec - B105 (Possible hardcoded password)
-_GH_USER_OPT = "--github-user"
+_GIT_PASSWORD_OPT = "--git-password" # nosec - B105 (Possible hardcoded password)
+_GIT_USER_OPT = "--git-user"
 
 
 _CONNECTIVITY_TEST_TIMEOUT = 60 # seconds
@@ -150,14 +151,13 @@ def parse_args(default_config_path, experience_kit_name):
 
     experience_kit_name = (
         "" if experience_kit_name is None else
-        "{0:s} ".format(experience_kit_name))
+        f"{experience_kit_name:s} ")
 
     p = argparse.ArgumentParser(
         description=f"""
             Start the Smart Edge Open {experience_kit_name}cluster provisioning process.
             The provisioning process consists of the provisioning server setup, the installation
-            media preparation, and the deployment of cluster nodes on selected machines.
-            For details see the scripts/deploy_esp/README.md document""")
+            media preparation, and the deployment of cluster nodes on selected machines.""")
     p.add_argument(
         "--init-config", action="store_true",
         help="generate default provisioning configuration and print it to the standard output")
@@ -166,11 +166,11 @@ def parse_args(default_config_path, experience_kit_name):
         default=default_config_path,
         help="provisioning configuration file PATH (default: %(default)s)")
     p.add_argument(
-        _GH_USER_OPT, action="store", dest="github_user", metavar="NAME",
-        help="NAME of the GitHub user to be used to clone required Smart Edge Open repositories")
+        _GIT_USER_OPT, action="store", dest="git_user", metavar="NAME",
+        help="NAME of the git remote user to be used to clone required Smart Edge Open repositories")
     p.add_argument(
-        _GH_TOKEN_OPT, action="store", dest="github_token", metavar="VALUE",
-        help="GitHub token to be used to clone required Smart Edge Open repositories")
+        _GIT_PASSWORD_OPT, action="store", dest="git_password", metavar="VALUE",
+        help="Git remote token to be used to clone required Smart Edge Open repositories")
     p.add_argument(
         "--dockerhub-user", action="store", dest="dockerhub_user", metavar="NAME",
         help="NAME of the user to authenticate with DockerHub during Live System stage")
@@ -201,7 +201,7 @@ def parse_args(default_config_path, experience_kit_name):
 def init_config(default_config_path):
     """ Dump content of the default configuration file to the screen (standard output) """
 
-    with open(default_config_path) as cfg_file:
+    with open(default_config_path, encoding="utf-8") as cfg_file:
         for line in cfg_file:
             sys.stdout.write(line)
 
@@ -211,11 +211,11 @@ def init_config(default_config_path):
 def apply_args(cfg, args):
     """ Overwrite loaded configuration with applicable command line arguments (if specified) """
 
-    if args.github_user is not None:
-        cfg.setdefault("github", {})["user"] = args.github_user
+    if args.git_user is not None:
+        cfg.setdefault("git", {})["user"] = args.git_user
 
-    if args.github_token is not None:
-        cfg.setdefault("github", {})["token"] = args.github_token
+    if args.git_password is not None:
+        cfg.setdefault("git", {})["password"] = args.git_password
 
     if args.registry_mirror is not None:
         # Following condition is expected to be enforced earlier (validate_config function):
@@ -258,7 +258,7 @@ def is_repo_accessible(url, args=None):
 
 def verify_repo_status(desc, url, config, args):
     """ Verify if given repo is a public repo or a private repo but
-        the provided GitHub credentials allow to access it. In case of
+        the provided credentials allow to access it. In case of
         the access failure raise the application exception
     """
 
@@ -268,27 +268,36 @@ def verify_repo_status(desc, url, config, args):
 
     logging.debug("%s repository is not public: %s", desc, url)
 
-    if not config['github']['user']:
-        raise seo.error.AppException(
-            seo.error.Codes.CONFIG_ERROR,
-            f"Either, the {desc} repository is private and requires the github user to be specified using the"
-            f" {_GH_USER_OPT} option, or the repository url ('{url}') is incorrect")
-    if not config['github']['token']:
-        raise seo.error.AppException(
-            seo.error.Codes.CONFIG_ERROR,
-            f"Either the {desc} repository is private and requires the github token to be specified using the"
-            f" {_GH_TOKEN_OPT} option, or the repository url ('{url}') is incorrect")
 
-    auth_url = seo.git.apply_token(url, "{0}:{1}".format(config['github']['user'], config['github']['token']))
+    if 'git' not in config:
+        raise seo.error.AppException(
+            seo.error.Codes.CONFIG_ERROR,
+            f"The {desc} repository is private and requires the git user and password to be specified using the"
+            f" {_GIT_USER_OPT} option or custom config file with git credentials,"
+            f" or the repository url ('{url}') is incorrect")
+
+    if not config['git']['user']:
+        raise seo.error.AppException(
+            seo.error.Codes.CONFIG_ERROR,
+            f"Either, the {desc} repository is private and requires the git remote user to be specified using the"
+            f" {_GIT_USER_OPT} option, or the repository url ('{url}') is incorrect")
+
+    if not config['git']['password']:
+        raise seo.error.AppException(
+            seo.error.Codes.CONFIG_ERROR,
+            f"Either the {desc} repository is private and requires the git remote token to be specified using the"
+            f" {_GIT_PASSWORD_OPT} option, or the repository url ('{url}') is incorrect")
+
+    auth_url = seo.git.apply_credentials(url, config['git']['user'], config['git']['password'])
 
     if not is_repo_accessible(auth_url, args):
         raise seo.error.AppException(
             seo.error.Codes.CONFIG_ERROR,
-            f"Either the {desc} repository url ('{url}') or the provided github credentials are incorrect")
+            f"Either the {desc} repository url ('{url}') or the provided git remote credentials are incorrect")
 
     logging.info(
         "%s repository is private and the %s's credentials are working: %s",
-        desc, config['github']['user'], url)
+        desc, config['git']['user'], url)
 
 
 def remove_files_recurse_by_pattern(path, pattern):
@@ -308,9 +317,21 @@ def check_repositories(config, args):
     verified_repos = []
 
     for profile in config['profiles']:
-        if profile['url'] not in verified_repos:
-            verify_repo_status("ESP Profile", profile["url"], config, args)
-            verified_repos.append(profile['url'])
+        if 'url' in profile:
+            if profile['url'] not in verified_repos:
+                verify_repo_status("ESP Profile", profile["url"], config, args)
+                verified_repos.append(profile['url'])
+        else:
+            # it has to be profile path
+            path = profile['path']
+
+            if pathlib.Path(path).exists():
+                logging.info("Profile %s is at %s", profile['name'], path)
+            else:
+                raise seo.error.AppException(
+                    seo.error.Codes.CONFIG_ERROR,
+                    f"Profile {profile['name']} cannot be found at {path}!")
+
 
         if not is_profile_bare_os(profile):
             if profile['experience_kit']['url'] not in verified_repos:
@@ -329,12 +350,12 @@ def get_version(command: str) -> tuple:
         raise seo.error.AppException(
             seo.error.Codes.MISSING_PREREQUISITE,
             f"command: '{command}' cannot be executed\n"
-            f"    {seo.error.TS_REF}")
+            f"    {seo.error.TS_REF}") from ex
     except subprocess.CalledProcessError as ex:
         raise seo.error.AppException(
             seo.error.Codes.MISSING_PREREQUISITE,
             f"{command} returned an error {ex.returncode}.\n"
-            f"    {seo.error.TS_REF}")
+            f"    {seo.error.TS_REF}") from ex
 
     match = re.search(r'\d+(\.\d+)+', out)
 
@@ -412,7 +433,7 @@ def check_preconditions(args):
 
     # sanity checks for docker
     tmpdir = tempfile.mkdtemp()
-    with open(f"{tmpdir}/Dockerfile", "w") as f:
+    with open(f"{tmpdir}/Dockerfile", "w", encoding="utf-8") as f:
         f.write(f"FROM {_CONNECTIVITY_TEST_IMAGE}\nRUN apk update && apk add --no-cache wget")
 
     cmds = [
@@ -429,9 +450,10 @@ def check_preconditions(args):
         logging.info("Testing Docker configuration: %s", subprocess.list2cmdline(cmd))
         try:
             if not args.debug:
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True) # nosec - B602
+                subprocess.run(cmd, # nosec - B602, B603
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             else:
-                subprocess.run(cmd, check=True) # nosec - B602
+                subprocess.run(cmd, check=True) # nosec - B602, B603
         except subprocess.CalledProcessError as e:
             shutil.rmtree(tmpdir)
             raise seo.error.AppException(
@@ -560,7 +582,7 @@ def configure_se_profile_group_vars_all(cfg, profile_path):
     """ Configure profile's group_vars/all.yml file based on config variables and env vars """
 
     all_vars = {}
-    all_vars['git_repo_token'] = cfg['github']['token']
+    all_vars['git_repo_token'] = cfg['git']['password']
 
     proxy = {}
     for p in ['http_proxy', 'https_proxy', 'no_proxy', 'ftp_proxy']:
@@ -578,7 +600,8 @@ def configure_se_profile_group_vars_all(cfg, profile_path):
 
     # serialize all vars, overwrite existing file
     output = yaml.dump(all_vars, Dumper=Dumper, default_flow_style=False)
-    open(profile_path / "files/seo/group_vars/all.yml", "w").write(output)
+    with open(profile_path / "files/seo/group_vars/all.yml", "w", encoding="utf-8") as profile_file:
+        profile_file.write(output)
 
 
 def configure_se_profile_customize_vars(profile, profile_path):
@@ -610,14 +633,14 @@ def configure_se_profile_customize_vars(profile, profile_path):
             content = body
 
         output = yaml.dump(content, Dumper=Dumper, default_flow_style=False)
-        with open(seo_full_path, "w") as f:
+        with open(seo_full_path, "w", encoding="utf-8") as f:
             f.write(output)
 
 
 def configure_se_profile_config_yaml(config, profile, profile_path):
     """ Configure profile's conf/config.yml file, which contain kernel parameters """
 
-    with open(profile_path / "conf/config.yml", "r+") as f:
+    with open(profile_path / "conf/config.yml", "r+", encoding="utf-8") as f:
         content = f.read()
 
         # first clean any leftovers
@@ -668,6 +691,32 @@ def configure_se_profile_config_yaml(config, profile, profile_path):
         f.write(content)
         f.truncate()
 
+def get_profile(config, profile, profile_path):
+    """ Copies or clones the profile"""
+    if 'url' in profile:
+        clone_profile(config, profile, profile_path)
+    elif 'path' in profile:
+        copy_profile(profile['path'], profile_path)
+    else:
+        raise seo.error.AppException(
+            seo.error.Codes.CONFIG_ERROR,
+            'Corrupt configuration, unknown profile source, url or path has to be specified'
+        )
+
+def clone_profile(config, profile, profile_path):
+    """Clones given profile using git config data to profile_path"""
+
+    logging.info("Cloning the profile from %s to %s", profile['url'], profile_path)
+    username = config['git']['user'] if 'git' in config else None
+    password = config['git']['password'] if 'git' in config else None
+    seo.git.clone(profile['url'], profile_path, username, password, ["--branch", profile['branch']])
+
+def copy_profile(src_path, dst_path):
+    """Copies given profile from src_path to dst_path"""
+
+    logging.info("Copying the profile from %s to %s", src_path, dst_path)
+    shutil.rmtree(dst_path, ignore_errors=True)
+    shutil.copytree(src_path, dst_path)
 
 def configure_se_profile_customize_inventory(profile, profile_path):
     """ Configure profile's inventory files, with additional hosts groups """
@@ -703,7 +752,7 @@ def configure_se_profile_customize_inventory(profile, profile_path):
                 inventory_output = yaml.dump(inventory_groups, Dumper=Dumper, default_flow_style=False)
 
         # replace inventory groups
-        with open(profile_path / f"files/seo/inventories/{inventory_filename}", "r+") as f:
+        with open(profile_path / f"files/seo/inventories/{inventory_filename}", "r+", encoding="utf-8") as f:
             content = f.read()
 
             marker_beg = '##extra_inventory_groups_begin##'
@@ -748,7 +797,8 @@ def configure_profile_settings(config, profile, profile_path):
     variables = {
         'ek_path': EK_PATH,
         'scenario': profile['scenario'],
-        'gh_token': config['github']['token']
+        'git_user': config['git']['user'],
+        'git_password': config['git']['password']
     }
 
     if 'controlplane_mac' in profile and profile['controlplane_mac']:
@@ -761,8 +811,8 @@ def configure_profile_settings(config, profile, profile_path):
 
 
     if not is_profile_bare_os(profile):
-        variables.update({ # this weird replace is here because the profiles have https:// hardcoded
-            'url':  profile['experience_kit']['url'].replace('https://', '').replace('http://', ''),
+        variables.update({
+            'url':  profile['experience_kit']['url'],
             'deployment': profile['experience_kit']['deployment'],
             'branch': profile['experience_kit']['branch']
         })
@@ -842,7 +892,8 @@ def configure_se_profile_sideload_files(profile, profile_path):
                                               'sideload_path': p.relative_to(sideload_dir)}
 
     # generate even empty file (file is always downloaded to target machine)
-    open(gen_script, "w").write(output)
+    with open(gen_script, "w", encoding="utf-8") as gen_file:
+        gen_file.write(output)
 
 
 @seo.stage.stage('configure-profiles', STAGES)
@@ -930,7 +981,8 @@ def build_usb_images(config):
             copy_usb_image(config, bios)
     else:
         # take profile data from config.yml (script's config may have changed without user repeating configure stage)
-        esp_cfg = yaml.safe_load(open(workdir / "conf/config.yml", 'r'))
+        with open(workdir / "conf/config.yml", 'r', encoding="utf-8") as config_file:
+            esp_cfg = yaml.safe_load(config_file)
         for bios in bioses:
             for profile in [p['name']  for p in esp_cfg['profiles']]:
                 logging.debug("Running makeusb.sh for %s %s", bios, profile)
@@ -942,32 +994,15 @@ def build_usb_images(config):
 def clone_esp(config):
     """ Download ESP """
 
-    token = config['github']['token']
     esp_config = config['esp']
     dest = esp_config['dest_dir']
 
-    with pathlib.Path(dest) as path:
-        if path.exists():
-            if not path.is_dir():
-                raise seo.error.AppException(
-                    seo.error.Codes.CONFIG_ERROR,
-                    f"The ESP destination directory ('{dest}') already exists and is not a directory")
+    username = config['git']['user'] if 'git' in config else None
+    password = config['git']['password'] if 'git' in config else None
 
-            logging.info("Removing already existing %s directory (stalled)", dest)
-            shutil.rmtree(dest, ignore_errors=True)
-
-    def __make_cmd(token):
-        return ["git", "clone", seo.git.apply_token(esp_config['url'], token), "--branch", esp_config['branch'], dest]
-
-    cmd_actual = __make_cmd(token)
-    cmd_anonym = __make_cmd("<github-token>") if token else cmd_actual
-
-    logging.debug("Executing command: %s", " ".join(cmd_anonym))
-
-    try:
-        subprocess.run(cmd_actual, check=True) # nosec - B603
-    except subprocess.CalledProcessError as e:
-        raise seo.error.AppException(seo.error.Codes.RUNTIME_ERROR, "Failed to clone the ESP repository") from e
+    seo.git.clone(esp_config['url'], dest, username, password,
+        ["--branch", esp_config['branch'], "--depth", "1"]
+    )
 
 
 @seo.stage.stage('configure-esp', STAGES)
@@ -998,28 +1033,39 @@ def configure_esp(config):
     # populate profiles
     esp_cfg['profiles'] = []
     for p in config['profiles']:
+        # ESP reports errors if those settings are not defined
         esp_profile = {
-            'git_remote_url': p['url'],
-            'profile_branch': p['branch'],
-            'profile_base_branch': '',  # empty - SEO profiles do not split code into branches
-            'git_username': config['github']['user'],
-            'git_token': config['github']['token'],
             'name': p['name'],
-            'custom_git_arguments': '--depth=1',
+            'git_remote_url': '',
+            'profile_branch': '',
+            'profile_base_branch': '',
+            'git_username': '',
+            'git_token': '',
+            'custom_git_arguments': '--depth=1' # no history, to speed it up
         }
+
+        if 'url' in p:
+            esp_profile.update({
+                'git_remote_url': p['url'],
+                'profile_branch': p['branch'],
+                'git_username': config['git']['user'] if 'git' in config else '',
+                'git_token': config['git']['password'] if 'git' in config else ''
+            })
+
         esp_cfg['profiles'].append(esp_profile)
 
     # create new ESP config.yml,
     # serialize using custom dumper, to keep indentation compatible with what ESP expects
     # (by default there is no whitespace indentation used)
     output = yaml.dump(esp_cfg, Dumper=Dumper)
-    open(esp_config_fullpath, "w").write(output)
+    with open(esp_config_fullpath, "w", encoding="utf-8") as esp_config_file:
+        esp_config_file.write(output)
 
     # use provided docker registry mirror (take first one if multiple ones are provided)
     # that ESP's own registry service will fallback to if requested image is not found locally
     if config['docker']['registry_mirrors']:
         registry_config_fullpath = pathlib.PurePath(config['esp']['dest_dir']) / "template/registry/config.yml"
-        with open(registry_config_fullpath, "r+") as f:
+        with open(registry_config_fullpath, "r+", encoding="utf-8") as f:
             content = f.read()
             content = re.sub(
                 r'remoteurl:\s([^\s]+)', f"remoteurl: {config['docker']['registry_mirrors'][0]}", content)
@@ -1039,19 +1085,32 @@ def build_esp(config):
     if build_lock.exists():
         build_lock.unlink()
 
-    # because we need to configure profile's conf/config.yml, which is being used by build.sh
-    # for generating boot menus, we first build everything, then alter that config, and
-    # then just regenerate boot menu using new config.
-    build_cmd = ['./build.sh']
-    run_esp_script(build_cmd, workdir)
+    # this will build docker images etc but profile syncing is skipped
+    # profile sync is done in later for individual profiles to allow mixing path profiles(no sync) and url profiles
+    cmd = ['./build.sh', '-P']
+    run_esp_script(cmd, workdir)
 
     for profile in config['profiles']:
-        profile_path = workdir / f"data/usr/share/nginx/html/profile/{profile['name']}"
-        configure_se_profile_config_yaml(config, profile, profile_path)
+        path = workdir / f"data/usr/share/nginx/html/profile/{profile['name']}"
+        name = profile['name']
+
+        # workaround, specyfing -P for build.sh causes the profiles are not synchronized and not built
+        # we like to do this on our own to support a scenario when profile is somewhere on the disk
+        # but we need to build certificates for multinode, so this is a mixed approach
+        # when url is specified then we call build.sh again to let multinode work with just that one profile
+
+        if 'url' in profile:
+            cmd = ['./build.sh', '-S', '-l', str(name)]
+            run_esp_script(cmd, workdir)
+        else:
+            logging.debug("The profile %s will not be synced and it will not support multinode deployment!", name)
+            get_profile(config, profile, path)
+
+
+        configure_se_profile_config_yaml(config, profile, path)
 
     rebuild_boot_menu_cmd = ['./build.sh', '-S', '-P']
     run_esp_script(rebuild_boot_menu_cmd, workdir)
-
 
 def cleanup(config):
     """

@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+# Common values
+namespace: {{ telemetry_namespace }}
+tlsServerName: {{ _tls_secret_name }}
+
+# fluentd Values
+fluentd:
+  image: fluent/fluentd-kubernetes-daemonset:v1.14-debian-forward-1
+  service: fluentd-logging
+  name: fluentd
+  memory: 200Mi
+  cpu: 100m
+  certPath: "/opt/fluentd/certs"
+
+#fluentd-configmap Values
+fluentdConfigmap:
+    name: fluentd-config
+    tag: {{ ansible_nodename }}
+    inputPaths: /var/log/syslog,/var/log/auth.log,/var/log/containers/*.log
+    outputFile_path: /tmp/test.log
+    path: "/fluentd/etc"
+
+fluentdMaster:
+  image: fluent/fluentd-kubernetes-daemonset:v1.14-debian-forward-1
+  name: fluentd-master
+  memory: 200Mi
+  cpu: 100m
+  port: 24224
+  portName: forward-south
+
+service:
+  name: fluentd-logging-gate
+  port: 24224
+
+fluentdMasterConfigmap:
+    name: fluentd-master-config
+    outputFilePath: /tmp/test.log
+    path: "/fluentd/etc"
+    forwardTargets: {{ telemetry_fluentd_forward_targets }}

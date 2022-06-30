@@ -58,6 +58,8 @@
   roles:
     - role: infrastructure/ptp/controlplane
       when: ptp_sync_enable | default(False)
+    - role: infrastructure/set_static_ip/for_controller
+      when: split_network | default(False)
 
 - hosts: edgenode_group
   any_errors_fatal: true
@@ -67,3 +69,5 @@
     - role: baseline_ansible/infrastructure/time_verify_ntp
       reference_host: "{{ groups['controller_group'][0] }}"
       when: ptp_sync_enable | default(False)
+    - role: infrastructure/set_static_ip/for_node
+      when: split_network | default(False)

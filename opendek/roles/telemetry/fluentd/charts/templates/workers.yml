@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.fluentd.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentd.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.fluentd.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.fluentd.name }}
+        app: {{ .Values.fluentd.name }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        chart: {{ .Release.Name }}
+    spec:
+      serviceAccount: {{ .Values.fluentd.name }}
+      serviceAccountName: {{ .Values.fluentd.name }}
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: {{ .Values.fluentd.name }}
+          image: {{ .Values.fluentd.image }}
+          securityContext:
+            privileged: true
+          resources:
+            limits:
+              memory: {{ .Values.fluentd.memory }}
+            requests:
+              cpu: {{ .Values.fluentd.cpu }}
+              memory: {{ .Values.fluentd.memory }}
+          volumeMounts:
+            - name: certs
+              mountPath: {{ .Values.fluentd.certPath }}
+            - name: {{ .Values.fluentdConfigmap.name }}
+              mountPath: {{ .Values.fluentdConfigmap.path }}
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: {{ .Values.fluentdConfigmap.name }}
+          configMap:
+            name: {{ .Values.fluentdConfigmap.name }}
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: certs
+          secret:
+            secretName: {{ .Values.tlsServerName }}

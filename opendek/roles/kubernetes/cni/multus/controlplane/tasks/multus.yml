@@ -70,7 +70,11 @@
     - name: wait for Multus to start
       command: >
         kubectl wait --for=condition=ready pod -l app=multus -n kube-system
-        --timeout=300s
+        --timeout=30s
+      register: result
+      retries: "{{ number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ retry_delay }}"
       changed_when: false
   
     - name: remove temporary directory

@@ -2,18 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2021 Intel Corporation
 
-
 node_ip=""
 node_name=""
 root_password=""
-nonroot_user="smartedge-open"
-nonroot_password="smartedge-open"
+nonroot_user=""
+nonroot_password=""
 remote_file_name="create_user_by_script.sh"
 
 
 usage () {
+  echo "Script is valid only for CentOS"
   echo "Usage: $0 -i REMOTE_NODE_IP -r REMOTE_ROOT_PASSWORD"
-  echo "      [-n REMOTE_NODE_NAME] [-U NONROOT_USER] [-P NONROOT_PASSWD]"
+  echo "      -U NONROOT_USER -P NONROOT_PASSWD [-n REMOTE_NODE_NAME]"
 }
 
 while getopts i:r:n:U:P: flag
@@ -36,7 +36,9 @@ print_error () {
 
 validate_vars () {
   [ -z "$node_ip" ] && print_error "-i REMOTE_NODE_IP"
-  [ -z "$root_password" ] && print_error "-i REMOTE_NODE_IP"
+  [ -z "$root_password" ] && print_error "-r REMOTE_ROOT_PASSWORD"
+  [ -z "$nonroot_user" ] && print_error "-U NONROOT_USER"
+  [ -z "$nonroot_password" ] && print_error "-P NONROOT_PASSWD"
 }
 
 print_vars () {

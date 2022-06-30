@@ -1,0 +1,122 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+- name: declare empty lists
+  set_fact:
+    raw_disk_devices: []
+    potential_raw_disk_devices: []
+    lvm_mapper_paths: []
+
+- name: populate an empty list with the raw drives present
+  set_fact:
+    potential_raw_disk_devices: "{{ potential_raw_disk_devices | default([]) + [item.key] }}"
+  when:
+  - item.key.startswith('vd') or item.key.startswith('xvd') or item.key.startswith('nvme') or item.key.startswith('sd')
+  - item.value is not search('usb-*')
+  - item.value.partitions | length == 0
+  loop: "{{ ansible_devices | dict2items }}"
+- name: check if potential device vg group already created
+  shell: set -o pipefail pvs | grep {{ item }} | awk '{ print $2; }'
+  args:
+    executable: /bin/bash
+  changed_when: true
+  register: result
+  become: yes
+  loop: "{{ potential_raw_disk_devices }}"
+- name: parse out result
+  set_fact:
+    raw_disk_devices: "{{ raw_disk_devices | default([]) + [item.item] }}"
+  when: item.stdout | length == 0
+  with_items: "{{ result.results }}"
+- name: print the list of disk devices
+  debug: var=raw_disk_devices
+  when: raw_disk_devices is defined
+- name: assign the raw drive for openebs
+  set_fact:
+    _openebs_drive_name: "{{ raw_disk_devices[0] }}"
+  when:
+  - (raw_disk_devices | length) > 0
+
+- name: identify the drive to wipe out
+  block:
+    - name: find the root mountpoint
+      shell: echo $(eval $(lsblk -oMOUNTPOINT,NAME -P | grep 'MOUNTPOINT="/"'); echo $NAME)
+      register: output
+    - name: identify the drive without OS
+      set_fact:
+        drive_name: "{{ item.key }}"
+      when:
+      - item.key.startswith('vd') or item.key.startswith('xvd') or item.key.startswith('nvme') or item.key.startswith('sd')
+      - item.value is not search('usb-*')
+      - item.value is not search (output.stdout)
+      loop: "{{ ansible_devices | dict2items }}"
+    - name: assign the drive for openebs 
+      set_fact:
+        _openebs_drive_name: "{{ drive_name }}"
+  when:
+  - (raw_disk_devices | length) == 0
+
+- name: drive identified for openebs 
+  debug:
+    msg: "potential drive for openebs{{ _openebs_drive_name }}"
+
+- name: unmount if openebs disk is mounted
+  shell: umount $disk
+  environment:
+    disk: "/dev/{{ _openebs_drive_name }}"
+  become: yes
+  failed_when: false
+  changed_when: true
+ 
+- name: remove openebs disk entry from fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: "/dev/{{ _openebs_drive_name }}"
+    state: absent
+    backup: yes
+  become: yes
+
+- name: clean up existing disk for openebs 
+  shell: |
+    echo $disk
+    sgdisk --zap-all $disk
+    dd if=/dev/zero of='$disk' bs=1M count=100 oflag=direct,dsync
+    blkdiscard $disk
+    partprobe $disk
+  args:
+    executable: /bin/bash
+  environment:
+    disk: "/dev/{{ _openebs_drive_name }}"
+  register:
+    shell_output
+  become: yes
+  failed_when: false
+  changed_when: true
+
+- name: print the shell output
+  debug: msg={{ shell_output }}
+
+- name: Find LVM if still present
+  set_fact:
+    lvm_mapper_paths: "{{ lvm_mapper_paths | default([]) + [item.value.holders] }}"
+  when:
+  - item.key.startswith('{{ _openebs_drive_name }}')
+  - item.value.holders != []
+  loop: "{{ ansible_devices | dict2items }}"
+
+- name: Remove LVM if present
+  command:  "dmsetup remove /dev/mapper/{{ item }}"
+  become: yes
+  when: lvm_mapper_paths != []
+  loop: "{{ lvm_mapper_paths[0] }}"
+
+- name: pvCreate
+  command: "pvcreate /dev/{{ _openebs_drive_name }}"
+  become: yes
+  changed_when: true
+      
+- name: vgCreate
+  command: "vgcreate lvmvg /dev/{{ _openebs_drive_name }}"
+  become: yes
+  changed_when: true

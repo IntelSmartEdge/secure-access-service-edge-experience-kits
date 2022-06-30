@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+criteriaLists:
+  pf1:
+    functionality: APP                     
+    deviceId: [158a,0d58,1593,159b,1592,188a]
+    numVFSupp: 64
+  pf2:
+    functionality: APP                      
+    deviceId: [158a,0d58,1593,159b,1592,188a]
+    numVFSupp: 64
+  pf3:
+    functionality: APP                     
+    deviceId: [158a,0d58,1593,159b,1592,188a]
+    numVFSupp: 64
+  pf4:
+    functionality: APP                     
+    deviceId: [158a,0d58,1593,159b,1592,188a]
+    numVFSupp: 64
+
+
+configurations:
+  timeoutForFindPTPMaster: 1

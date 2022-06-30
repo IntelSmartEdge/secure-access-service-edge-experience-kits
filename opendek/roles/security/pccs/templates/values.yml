@@ -8,8 +8,10 @@ matchLabels:
 
 container:
   name: pccs
+  image_repo: {{ _pccs_image_repo }}
   image: {{ _pccs_image_name }}
   tag: {{ _pccs_image_tag }}
+  imagePullPolicy: IfNotPresent
   certs:
     volumeName: pccs-certs
     certSecretName: {{ _pcss_certificate_secret_name }}
@@ -19,10 +21,27 @@ container:
     dest: /opt/intel/pccs/config/default.json
     filename: default.json
 
+initContainer:
+  name: init-db-vol
+  image: busybox
+  tag: 1.32
+  imagePullPolicy: IfNotPresent
+
+pckCacheVolume:
+  name: pckcache-vol
+  mountPath: /tmp
+  hostPath: /var/lib/pccs
+
+securityContext:
+  runAsUser: 65333
+
 secret:
   name: pccs-pass
   userPassword: {{ pccs_user_password | b64encode }}
-  adminPassword: {{ pccs_admin_password | b64encode }}
+  adminPassword: "{{ pccs_admin_password }}"
+
+service:
+  nodePort: {{ pccs_access_port }}
 
 configmap:
   name: pccs-cm
@@ -31,7 +50,5 @@ configmap:
   apiKey: {{ pccs_api_key }}
   proxy: {{ proxy_env.https_proxy | d("") }}
   userPassword: {{ pccs_user_password | hash('sha512') }} # Do not add salt to the password
-  adminPassword: {{ pccs_admin_password | hash('sha512') }} # Do not add salt to the password
-
-service:
-  nodePort: {{ pccs_access_port }}
+  sqlite_password: "{{ pccs_sqlite_password }}"
+  mysql_password: "{{ pccs_mysql_password }}" 

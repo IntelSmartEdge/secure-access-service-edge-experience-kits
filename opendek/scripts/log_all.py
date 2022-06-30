@@ -32,9 +32,9 @@ def read_cfg(path):
     """
     # to avoid script error default git configuration is also available.
     if os.path.isfile(path):
-        with open(path, "r") as config_file:
+        with open(path, "r", encoding="utf-8") as config_file:
             return json.load(config_file)
-    return dict()
+    return {}
 
 def tar_filter_with_exclude(exclude_paths):
     """
@@ -71,7 +71,7 @@ def collect_logs(user, host):
     send it to controller root directory.
     """
     start = (datetime.now()).strftime("%Y_%m_%d_%H_%M_%S")
-    file_name = "../%s_SmartEdge_experience_kit_archive.tar.gz" % start
+    file_name = f"../{start}_SmartEdge_experience_kit_archive.tar.gz"
     config = read_cfg("scripts/log_all.json")
 
     commands = ["git status", "git diff", "git log -n100"]
@@ -90,7 +90,7 @@ def collect_logs(user, host):
             if os.path.isdir(main_dir + "/.git"):
                 for com in commands:
                     path = com.replace(" ", "_") + ".log"
-                    with open(path, "w") as log_file:
+                    with open(path, "w", encoding="utf-8") as log_file:
                         subprocess.run(com, # nosec - B602
                                        shell=True,
                                        stdout=log_file,
@@ -99,7 +99,7 @@ def collect_logs(user, host):
                                        universal_newlines=True)
                         tar.add(path, arcname=path)
     except OSError as os_error:
-        print("ERROR: %s" % os_error)
+        print(f"ERROR: {os_error}")
         return -1
 
     try:
@@ -108,14 +108,13 @@ def collect_logs(user, host):
             user_prefix = f"{user}@"
 
 
-        subprocess.run( # nosec - B603
-            "scp -C %s scripts/log_collector scripts/log_collector.json %s%s:~"
-            % (file_name, user_prefix, host),
+        subprocess.run( # nosec - B602, B603
+            f"scp -C {file_name} scripts/log_collector scripts/log_collector.json {user_prefix}{host}:~",
             shell=True,
             check=True)
 
     except subprocess.CalledProcessError as process_error:
-        print("Collecting controller logs failed: %s" % process_error)
+        print(f"Collecting controller logs failed: {process_error}")
         print("Please check connection and run: `python3 scripts/log_all.py`")
 
     return 0
@@ -126,7 +125,7 @@ def main():
     Function creates archive file with Smart Edge experience kit information and
     send it to controller root directory.
     """
-    with open("inventory/default/inventory.ini", "r") as inventory_file:
+    with open("inventory/default/inventory.ini", "r", encoding="utf-8") as inventory_file:
         lines = inventory_file.read().split("\n")
         name = lines[lines.index("[controller_group]") + 1].strip()
         controller = [x for x in lines

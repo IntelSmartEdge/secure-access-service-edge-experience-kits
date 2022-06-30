@@ -8,34 +8,41 @@
      state: directory
      prefix: sriov-detect-
    register: sriov_detect_dir
+   become: yes
    
- - name: Copy the detect SR-IOV GO file to the remote OS with owner and permissions
+ - name: Copy the detect SR-IOV GO file and the configurations file to the remote OS with owner and permissions
    copy:
-     src: "{{ role_path }}/files/sriov_detection.go"
+     src: "{{ role_path }}/files/{{ item }}"
      dest: "{{ sriov_detect_dir.path }}"
      owner: "{{ project_user }}"
      group: "{{ project_user }}"
      mode: a=rx,u+w 
+   with_items:
+     - sriov_detection.go
+     - sriov_detection_configuration.yml
+     - go.mod
+   become: yes   
           
- - name: Prepare the GoLang environment  
+ - name: Prepare the GoLang environment - Searching and Downloading the required GoLang packages  
    command: "{{ item }}"
    args:
      chdir: "{{ sriov_detect_dir.path }}"
    with_items:
-    - go mod init github.com/jaypipes
     - go mod tidy
    environment:
      PATH: /usr/local/go/bin:{{ ansible_env.PATH }}
-   changed_when: false   
+   changed_when: false
+   become: yes   
     
  - name: Run sr-iov detection application
-   command: go run sriov_detection.go {{ hostvars[inventory_hostname].deployment }} debug_mode
+   command: go run sriov_detection.go debug_mode
    args:
      chdir: "{{ sriov_detect_dir.path }}" 
    register: sriov_detection_output
    environment:
      PATH: /usr/local/go/bin:{{ ansible_env.PATH }}
-   changed_when: false   
+   changed_when: false
+   become: yes   
         
  - name: Set Debian and RedHat SR-IOV interfaces vars from 10-default.yml
    set_fact:

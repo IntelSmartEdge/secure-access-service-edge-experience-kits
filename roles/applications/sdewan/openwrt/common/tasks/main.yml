@@ -11,298 +11,315 @@
 # other than those that are expressly stated in the License.
 
 ---
+- name: Set global variables for icn sdewan ansible
+  set_fact:
+    project_user: "{{ ansible_user }}"
 
-- name: setup ctrl pod
-  block:
-    - name: copy Helm chart to the master node
-      copy:
-        src: "{{ role_path }}/charts/sdewan-ctrl"
-        dest: "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl"
-        mode: preserve
-      become: yes
+- name: configure calico ippools natoutgoing
+  shell: "set -o pipefail && kubectl get ippools.crd.projectcalico.org -o yaml | sed  \"s/natOutgoing:.*$/natOutgoing: false/g\" | kubectl replace -f -"
+  changed_when: true
 
-    - name: rename ctrl file
-      command:
-        mv  "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/templates/{{ item.src }}"
-            "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/templates/{{ item.dest }}"
-      loop:
-        - src: "certificate.yaml.j2"
-          dest: "certificate.yaml"
-        - src: "crd.yaml.j2"
-          dest: "crd.yaml"
-        - src: "deployment.yaml.j2"
-          dest: "deployment.yaml"
-        - src: "issuer.yml.j2"
-          dest: "issuer.yml"
-        - src: "namespace.yml.j2"
-          dest: "namespace.yml"
-        - src: "role.yml.j2"
-          dest: "role.yml"
-        - src: "service.yaml.j2"
-          dest: "service.yaml"
-        - src: "webhook.yml.j2"
-          dest: "webhook.yml"
-      become: yes
+- name: get icn-sdewan 
+  git:
+    repo: '{{ icn_sdwan_repo }}'
+    dest:  "{{ icn_sdwan_dir }}"
+    version: "{{ icn_commit }}"
+    force: yes
+  register: result
+  retries: 5
+  until: result is succeeded
+  delay: 10
 
-    - name: rename ctrl Helm chart
-      command:
-        mv "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/{{ item.src }}"
-           "{{ sdewan_helm_charts_dir }}/sdewan-crd-ctrl/sdewan-ctrl/{{ item.dest }}"
-      loop:
-        - src: "values.yaml.j2"
-          dest: "values.yaml"
-        - src: "Chart.yaml.j2"
-          dest: "Chart.yaml"
-      become: yes
+#[] Comment it when ICN release images to public repository
+# - name: build pre-prod icn-sdewan images if necessary
+#   block: 
+#   - name: check if pre-prod cnf image existed
+#     shell: "set -o pipefail && docker images -q integratedcloudnative/sdewan-cnf:pre-pro | wc -l"
+#     register: cnf_image_existed
+#     changed_when: true
 
-    - name: download cert-manager
-      get_url:
-        url: "{{ cert_link }}"
-        dest: "{{ sdewan_helm_charts_dir }}"
-      register: result
-      retries: "{{ sdwan_number_of_retries }}"
-      until: result is succeeded
-      delay: "{{ sdwan_retry_delay }}"
-      become: yes
+#   - name: check if pre-prod ctrl image existed
+#     shell: "set -o pipefail && docker images -q integratedcloudnative/sdewan-controller:pre-pro | wc -l"
+#     register: ctrl_image_existed
+#     changed_when: true
+    
+#   - name: build cnf image if necessary 
+#     block: 
+#     - name: set cnf image name & tag
+#       lineinfile:
+#         dest: "{{ icn_sdwan_dir }}/platform/cnf-openwrt/src/build_image.sh"
+#         regexp: "^image_tag"
+#         line: "image_tag=integratedcloudnative/sdewan-cnf:pre-pro"
+#         state: present
 
-    - name: pre-install
-      command: kubectl apply -f {{ item }}
-      args:
-         chdir: "{{ sdewan_helm_charts_dir }}"
-      loop:
-        - cert-manager.yaml
-      become: yes
-      failed_when: false
+#     - name: build cnf image
+#       command: "bash ./build_image.sh"
+#       args:
+#         chdir: "{{ icn_sdwan_dir }}/platform/cnf-openwrt/src"
+#     when: cnf_image_existed.stdout != "1"
 
-    - name: download kubebuilder
-      get_url:
-        url: "{{ kubebuilder_link }}"
-        dest: "{{ kubebuilder_download_dest }}"
-      register: result
-      retries: "{{ sdwan_number_of_retries }}"
-      until: result is succeeded
-      delay: "{{ sdwan_retry_delay }}"
-      become: yes
+#   - name: build ctrl image if necessary
+#     block: 
+#     - name: set ctrl image name & tag
+#       lineinfile:
+#         dest: "{{ icn_sdwan_dir }}/platform/crd-ctrlr/src/Makefile"
+#         regexp: "^IMG"
+#         line: "IMG ?= integratedcloudnative/sdewan-controller:pre-pro"
+#         state: present
 
-    - name: tar kubebuilder
-      unarchive:
-        src: "{{ kubebuilder_download_dest }}"
-        dest: "/tmp/"
-        remote_src: true
-      become: yes
+#     - name: build ctrl image
+#       make: 
+#         chdir: "{{ icn_sdwan_dir }}/platform/crd-ctrlr/src"
+#         target: docker-build
+#       environment: 
+#         PATH: "{{ lookup('env', 'PATH') }}:/usr/local/go/bin"
+#       register: result
+#       until: result is succeeded
+#     when: ctrl_image_existed.stdout != "1"
 
-    - name: delete old kubebuilder from /usr/local folder
-      file:
-        path: "{{ kubebuilder_bin_folder }}"
-        state: absent
-      become: yes
+#   - name: use pre-prod image
+#     block:
+#       - name: change cnf helm chart target image
+#         command: "yq -i '.containers.image = \"integratedcloudnative/sdewan-cnf:pre-pro\"' {{ icn_sdwan_dir }}platform/deployment/helm/sdewan_cnf/values.yaml"
 
-    - name: move kubebuilder to bin(copy will change x mode for file)
-      command: mv {{ kubebuilder_tar_folder }} {{ kubebuilder_bin_folder }}
-      become: yes
+#       - name: change ctrl helm chart target image
+#         command: "yq -i '.spec.sdewan.image = \"integratedcloudnative/sdewan-controller:pre-pro\"' {{ icn_sdwan_dir }}platform/deployment/helm/sdewan_controllers/values.yaml"
 
-    - name: set env for kubebuilder
-      lineinfile:
-        state: present
-        dest: /etc/profile
-        line: "{{ item }}"
-      become: yes
-      loop:
-        - "export PATH=$PATH:/usr/local/kubebuilder/bin"
+- name: check if target scc image existed
+  shell: "set -o pipefail && docker images -q {{ scc_image }}| wc -l"
+  register: scc_existed
+  changed_when: true
 
-    - name: check the status of pre-install
-      shell: kubectl get deploy -n cert-manager | grep 0/1 | wc -l
-      register: cert_deploy
-      retries: "{{ sdwan_number_of_retries }}"
-      delay: "{{ sdwan_retry_delay }}"
-      until: cert_deploy.stdout | int == 0
-      changed_when: false
-      become: yes
+- name: build scc image if not existed
+  block: 
+  - name: build scc image with proxy
+    command: docker build -f build/Dockerfile . -t "{{ scc_image }}" --network=host --build-arg "http_proxy={{ git_http_proxy }}" --build-arg "https_proxy={{ git_http_proxy }}"      
+    args:
+      chdir: "{{ icn_sdwan_dir }}/central-controller"
+    become: yes
+    register: result
+    retries: 5
+    until: result is succeeded
+    delay: 10
+    when: git_http_proxy | default(False)
 
-    - name: checkout ewo repository
-      git:
-        repo: "{{ sdewan_crd_url }}"
-        dest: "{{ sdewan_helm_charts_dir }}/ewo"
-        version: "{{ sdewan_crd_commit }}"
-        force: true
-        clone: true
-        update: true
-      become: yes
-      register: result
-      retries: "{{ sdwan_number_of_retries }}"
-      until: result is succeeded
-      delay: "{{ sdwan_retry_delay }}"
+  - name: build scc image without proxy
+    command: docker build -f build/Dockerfile . -t "{{ scc_image }}" --network=host
+    args:
+      chdir: "{{ icn_sdwan_dir }}/central-controller"
+    become: yes
+    register: result
+    retries: 5
+    until: result is succeeded
+    delay: 10
+    when: not git_http_proxy | default(False)
+  when: scc_existed.stdout != "1"
 
-    - name: prepare for build crd ctrl image
-      shell: source /etc/profile && make test
-      args:
-        chdir: "{{ sdwan_crd_image_path }}"
-      register: result
-      retries: 1
-      until: result is succeeded
-      delay: "{{ sdwan_retry_delay }}"
-      become: yes
+- name: prepare namespace for icn-sdewan
+  template:
+    src: "{{ role_path }}/templates/namespace.yaml.j2"
+    dest: "{{ icn_sdwan_dir }}/namespace.yaml"
+    mode: a=rx,u+w
 
-    - name: build crd ctrl image
-      shell: source /etc/profile && \
-             docker build --network=host --build-arg "http_proxy={{ git_http_proxy }}" --build-arg "https_proxy={{ git_http_proxy }}" \
-              --build-arg "no_proxy={{ sdwan_no_proxy }}" . -t {{ sdwan_crd_image }}
-      args:
-        chdir: "{{ sdwan_crd_image_path }}"
-      register: result
-      retries: 1
-      until: result is succeeded
-      delay: "{{ sdwan_retry_delay }}"
-      become: yes
+- name: apply namespace for icn-sdewan
+  command: "kubectl apply -f namespace.yaml "
+  args:
+    chdir: "{{ icn_sdwan_dir }}"
+  changed_when: true
 
-    - name: helm install ctrl pod
-      command: "{{ helm_cmd }} install sdewan-ctrl ./sdewan-crd-ctrl/sdewan-ctrl/"
-      args:
-        chdir: "{{ sdewan_helm_charts_dir }}"
-      become: yes
+- name: prepare multus cr for icn-sdwan
+  template:
+    src: "{{ role_path }}/templates/multus-cr.yaml.j2"
+    dest: "{{ icn_sdwan_dir }}/multus-cr.yaml"
+    mode: a=rx,u+w
 
-    - name: check the status of ctrl pod
-      shell: kubectl get deploy -n sdewan-system | grep 0/1 | wc -l
-      register: ctrl_deploy
-      retries: "{{ sdwan_number_of_retries }}"
-      delay: "{{ sdwan_retry_delay }}"
-      until: ctrl_deploy.stdout | int == 0
-      changed_when: false
-      become: yes
+- name: apply multus cr for icn-sdwan 
+  command: "kubectl apply -f multus-cr.yaml"
+  args:
+    chdir: "{{ icn_sdwan_dir }}"
+  changed_when: true
 
-- name: set provider network
-  block:
-    - name: copy file to the master node
-      template:
-        src: "{{ role_path }}/templates/networks-prepare.yaml.j2"
-        dest: "{{ sdewan_helm_charts_dir }}/networks-prepare.yaml"
+- name: setup CRD controller
+  block: 
+    - name: prepare namespace for CRD controller
+      template: 
+        src: "{{ role_path }}/templates/namespace.yaml.j2"
+        dest: "{{ icn_sdwan_dir }}/namespace.yaml"
         mode: a=rx,u+w
-      with_items: "{{ networks }}"
-      become: yes
 
-    - name: setup provider network
-      command: kubectl apply -f {{ item }}
+    - name: change ctrl helm chart target image
+      command: "yq -i '.spec.sdewan.image = \"integratedcloudnative/sdewan-controller:0.5.2-1\"' {{ icn_sdwan_dir }}platform/deployment/helm/sdewan_controllers/values.yaml"
+
+    - name: package crd chart
+      command: "helm package sdewan_controllers"
       args:
-         chdir: "{{ sdewan_helm_charts_dir }}"
-      loop:
-        - networks-prepare.yaml
-      become: yes
-  when: sdwan_labels is defined
+        chdir: "{{ icn_sdwan_dir }}/platform/deployment/helm"
 
-- name: start cnf
+    # - name: deploy CRD controller via helm
+    #   command: "helm install {{ crd_ctrl_chart_name }} ./controllers-0.1.0.tgz"
+    #   args:
+    #     chdir: "{{ icn_sdwan_dir }}/platform/deployment/helm"
+
+- name: setup cnf
   block:
-    - name: copy Helm chart to the master node
+    - name: configure cluster network and cnf in default mode 
+      block: 
+      - name: configure cluster network for cnf
+        template:
+          src: "{{ role_path }}/templates/default-network.yaml.j2"
+          dest: "{{ icn_sdwan_dir }}/default-networks.yaml"
+          mode: a=rx,u+w
+        with_items: "{{ network_conf }}"
+
+      - name: apply configured cluster network
+        command: "kubectl apply -f default-networks.yaml"
+        args:
+          chdir: "{{ icn_sdwan_dir }}"
+
+      - name: change cnf helm chart target image
+        command: "yq -i '.containers.image = \"integratedcloudnative/sdewan-cnf:0.5.2-1\"' {{ icn_sdwan_dir }}platform/deployment/helm/sdewan_cnf/values.yaml"
+
+      - name: configure cnf ip address
+        block: 
+          - name: get ProviderNetwork gateway
+            command: "kubectl get providernetworks.k8s.plugin.opnfv.org -n sdewan-system -o=jsonpath='{.items[?(@.kind==\"ProviderNetwork\")].spec.ipv4Subnets[0].gateway}' "
+            register: pnetwork_gateway
+
+          - name: prepare cnf provider network ip
+            shell: "set -o pipefail && echo {{ pnetwork_gateway.stdout }} | awk -F '/' '{print $1}' - | awk -F '.' '{printf \"%s.%s.%s.%s\",$1,$2,$3,{{ icn_cnf_ip_suffix }}}' "
+            register: pnet_ip
+
+          - name: configure cnf provider network ip address
+            command: "yq -i '.nfn[0].ipAddress = \"{{ pnet_ip.stdout }}\"' {{ icn_sdwan_dir }}platform/deployment/helm/sdewan_cnf/values.yaml"
+
+          - name: configure cnf public ip
+            command: "yq -i '.publicIpAddress = \"{{ pnet_ip.stdout }}\"' {{ icn_sdwan_dir }}platform/deployment/helm/sdewan_cnf/values.yaml"
+          
+          - name: get OVN-network gateway
+            command: "kubectl get networks.k8s.plugin.opnfv.org -n sdewan-system -o=jsonpath='{.items[?(@.kind==\"Network\")].spec.ipv4Subnets[0].gateway}'"
+            register: ovn_network_gateway
+
+          - name: prepare cnf ovn-network network ip
+            shell: "set -o pipefail && echo {{ ovn_network_gateway.stdout }} | awk -F '/' '{print $1}' - | awk -F '.' '{printf \"%s.%s.%s.%s\",$1,$2,$3,{{ icn_cnf_ip_suffix }}}' "
+            register: onet_ip
+          
+          - name: configure cnf ovn-network ip address
+            command: "yq -i '.nfn[1].ipAddress = \"{{ onet_ip.stdout }}\"' {{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/values.yaml"
+
+          - name: configure cnf default CIDR
+            command: "yq -i '.defaultCIDR = \"{{ calico_cidr }}\"' {{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/values.yaml"
+
+    - name: preconfig certificate namespace
+      command: "yq -i '.metadata.namespace = \"sdewan-system\"' {{ icn_sdwan_dir }}/platform/deployment/helm/cert/cnf_cert.yaml"
+
+    - name: preconfig crd certs domain
+      replace:
+        path: "{{ icn_sdwan_dir }}/platform/deployment/helm/cert/cnf_cert.yaml"
+        regexp: '\*.default.pod.cluster.local'
+        replace: '*.sdewan-system.pod.cluster.local'
+
+    - name: pre-regenerate certificate
+      command: "kubectl apply -f cert/cnf_cert.yaml"
+      args:
+        chdir: "{{ icn_sdwan_dir }}/platform/deployment/helm"
+
+    - name: setup cnf namespace
+      replace:
+        path: "{{ item }}"
+        regexp: 'namespace:.*$'
+        replace: 'namespace: sdewan-system'
+      loop:
+        - "{{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/values.yaml"
+        - "{{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/templates/cm.yaml"
+
+    - name: replace modified chart file
+      copy: 
+        src: "{{ role_path }}/templates/cnf-deployment-with-annotation.yaml"
+        dest: "{{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/templates/deployment.yaml"
+        mode: '0664'
+
+    - name: prepare provider network chart value
+      command: "yq -i '.nfn[0].namespace = \"sdewan-system\"' {{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/values.yaml"
+
+    - name: prepare ovn-network chart value
+      command: "yq -i '.nfn[1].namespace = \"sdewan-system\"' {{ icn_sdwan_dir }}/platform/deployment/helm/sdewan_cnf/values.yaml"
+  
+    - name: package cnf chart
+      command: "helm package sdewan_cnf "
+      args:
+        chdir: "{{ icn_sdwan_dir }}/platform/deployment/helm"
+
+    # - name: deploy cnf via helm
+    #   command: "helm install {{ cnf_chart_name }} ./cnf-0.1.0.tgz"
+    #   args:
+    #     chdir: "{{ icn_sdwan_dir }}/platform/deployment/helm"
+
+- name: Prepare sasectl command line tool
+  block:
+    - name: Prepare golang > 1.17
+      block: 
+        - name: create golang directory
+          file:
+            path: "{{ sase_golang_download_dest }}"
+            state: directory
+            owner: "{{ project_user }}"
+            group: "{{ project_group  }}"
+            mode: a=rx,u+w
+
+        - name: Download golang
+          get_url:
+            url: "{{ sase_golang_download_url }}"
+            dest: "{{ sase_golang_download_dest }}"
+            checksum: "{{ sase_golang_download_checksum }}"
+          register: golang_download
+          retries: "{{ number_of_retries }}"
+          until: golang_download is succeeded
+          delay: "{{ retry_delay }}"
+
+        - name: unarchive golang
+          unarchive:
+            src: "{{ golang_download.dest }}"
+            dest: "{{ sase_golang_download_dest }}"
+            copy: False
+            mode: 0755
+          become: yes
+
+    - name: Build sasectl and prepare config file.
+      block: 
+        - name: get dependencies for sasectl 
+          command: "{{ sase_golang_download_dest }}/go/bin/go mod tidy -compat=1.17"
+          args:
+            chdir: "{{ role_path }}/files/sasectl"
+          become: yes
+
+        - name: build sasectl
+          command: "{{ sase_golang_download_dest }}/go/bin/go build -o sasectl ."
+          args:
+            chdir: "{{ role_path }}/files/sasectl"
+          become: yes
+
+        - name: build reg_cluster for sasectl
+          command: "{{ sase_golang_download_dest }}/go/bin/go build -o reg_cluster ./reg_cluster.go"
+          args:
+            chdir: "{{ icn_sdwan_dir }}/central-controller/src/reg_cluster"
+          become: yes
+
+        - name: prepare config file
+          template:
+            src: "{{ role_path }}/templates/sasectl.yaml.j2"
+            dest: /etc/sasectl.conf
+            mode: 0666
+          become: yes
+    
+    - name: move sasectl to user path
       copy:
-        src: "{{ role_path }}/charts/sdewan-cnf"
-        dest: "{{ sdewan_helm_charts_dir }}"
-        mode: preserve
+        src: "{{ role_path }}/files/sasectl/sasectl"
+        dest: /usr/local/bin/
+        mode: 0755
       become: yes
 
-    - name: rename cnf file
-      command:
-        mv "{{ sdewan_helm_charts_dir }}/sdewan-cnf/templates/{{ item.src }}"
-           "{{ sdewan_helm_charts_dir }}/sdewan-cnf/templates/{{ item.dest }}"
-      loop:
-        - src: "cm.yaml.j2"
-          dest: "cm.yaml"
-        - src: "deployment.yaml.j2"
-          dest: "deployment.yaml"
-        - src: "secret.yaml.j2"
-          dest: "secret.yaml"
+    - name: setup bash completion
+      shell:
+        cmd: sasectl completion bash > /etc/bash_completion.d/sasectl
+        creates: /etc/bash_completion.d/sasectl
       become: yes
-
-    - name: set nodeSelector label
-      lineinfile:
-        dest: "{{ sdewan_helm_charts_dir }}/sdewan-cnf/templates/deployment.yaml"
-        regexp: "^(.*)nodeSelector:"
-        line: "      nodeSelector: {{ sdwan_labels }}"
-        state: present
-      become: yes
-
-    - name: rename cnf files name
-      command:
-        mv "{{ sdewan_helm_charts_dir }}/sdewan-cnf/{{ item.src }}"
-           "{{ sdewan_helm_charts_dir }}/sdewan-cnf/{{ item.dest }}"
-      loop:
-        - src: "Chart.yaml.j2"
-          dest: "Chart.yaml"
-        - src: "cnf_cert.yaml.j2"
-          dest: "cnf_cert.yaml"
-        - src: "namespace.yml.j2"
-          dest: "namespace.yml"
-      become: yes
-
-    - name: get host name
-      command: hostname
-      register: name
-      become: yes
-
-    - name: keep record of host name
-      set_fact:
-        host_name: "{{ name.stdout }}"
-      become: yes
-
-    - name: set label
-      command: "kubectl label nodes {{ host_name }} {{ item.key }}={{ item.value }} --overwrite"
-      with_dict:
-       - "{{ sdwan_labels }}"
-      become: yes
-
-    - name: set host name
-      lineinfile:
-        dest: "{{ sdewan_helm_charts_dir }}/sdewan-cnf/pre-install.sh"
-        regexp: "^CNF_NODE"
-        line: CNF_NODE={{ host_name }}
-        state: present
-        mode: a=rwx
-      become: yes
-
-    - name: set proxy for cnf build
-      lineinfile:
-        dest: "{{ sdwan_cnf_path }}/set_proxy"
-        regexp: "^(.*)docker_proxy"
-        line: "docker_proxy={{ git_http_proxy }}"
-        state: present
-      become: yes
-
-    - name: change mode for build file
-      file:
-        path: "{{ sdwan_cnf_path }}/build_image.sh"
-        mode: a=rwx
-      become: yes
-
-    - name: build cnf image  # noqa command-instead-of-shell
-      shell: ./build_image.sh
-      args:
-        chdir: "{{ sdwan_cnf_path }}"
-      register: result
-      retries: 2
-      until: result is succeeded
-      delay: "{{ sdwan_retry_delay }}"
-      become: yes
-
-    - name: create namespace and certificate
-      command: kubectl apply -f {{ item }}
-      args:
-         chdir: "{{ sdewan_helm_charts_dir }}/sdewan-cnf"
-      loop:
-        - namespace.yml
-        - cnf_cert.yaml
-      become: yes
-
-    - name: run pre-install  # noqa command-instead-of-shell
-      shell: ./pre-install.sh
-      args:
-        chdir: "{{ sdewan_helm_charts_dir }}/sdewan-cnf"
-      become: yes
-
-    - name: create cnf password
-      shell: echo $RANDOM|md5sum|cut -c 1-8
-      register: cnf_password
-      become: yes
-
-    - name: set cnf password
-      set_fact:
-        sdwan_cnf_password: "{{ cnf_password.stdout }}"
-      become: yes
-  when: sdwan_labels is defined

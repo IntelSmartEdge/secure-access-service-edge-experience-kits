@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.fluentdMasterConfigmap.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentd.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+data:
+  fluent.conf: |-
+    @include receive-fluent.conf
+    @include forward-fluent.conf
+  receive-fluent.conf: |-
+    <source>
+      @type forward
+      port {{ .Values.fluentdMaster.port }}
+      bind 0.0.0.0
+
+      <transport tls>
+        ca_path {{ .Values.fluentd.certPath }}/ca.crt
+        cert_path {{ .Values.fluentd.certPath }}/tls.crt
+        private_key_path {{ .Values.fluentd.certPath }}/tls.key
+      </transport>
+      <parse>
+        @type none
+      </parse>
+    </source>
+
+  forward-fluent.conf: |-
+    {{ if .Values.fluentdMasterConfigmap.forwardTargets }}
+    <match **>
+    @type forward
+    {{- range .Values.fluentdMasterConfigmap.forwardTargets }}
+    <server>
+       name {{ .name }}
+       host {{ .host }}
+       port {{ .port }}
+    </server>
+    {{- end }}
+
+    tls_insecure_mode true
+    tls_cert_path  {{ .Values.fluentd.certPath }}/ca.crt
+    tls_client_cert_path  {{ .Values.fluentd.certPath }}/tls.crt
+    tls_client_private_key_path  {{ .Values.fluentd.certPath }}/tls.key
+
+    </match>
+    {{- end }}

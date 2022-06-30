@@ -50,17 +50,17 @@ prometheus:
     tlsConfig:
       keySecret:
         key: tls.key
-        name: "{{ _node_exporter_tls_secret }}"
+        name: "{{ telemetry_prometheus_tls_secret_name }}"
         optional: false
       cert:
         secret:
           key: tls.crt
-          name: "{{ _node_exporter_tls_secret }}"
+          name: "{{ telemetry_prometheus_tls_secret_name }}"
           optional: false
       ca:
         secret:
           key: ca.crt
-          name: "{{ _node_exporter_tls_secret }}"
+          name: "{{ telemetry_prometheus_tls_secret_name }}"
           optional: false
     relabelings:
       - action: labelmap

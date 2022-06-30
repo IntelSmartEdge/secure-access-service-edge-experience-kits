@@ -5,11 +5,14 @@
 skip_list:
   - '701'
   - 'indentation'
+  - 'unnamed-task'
+  - 'fqcn-builtins'
+  - 'experimental'
+  - 'yaml'
 
 exclude_paths:
   - roles/telemetry/prometheus/files/
-  - roles/telemetry/statsd-exporter/files
-  - roles/kubernetes/dashboard/files
+  - roles/telemetry/statsd_exporter/files
   - roles/nfd/files/
   - roles/baseline_ansible
   - .github/

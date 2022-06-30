@@ -17,5 +17,8 @@
       when: telemetry_telegraf_enable | default(True)
     - role: telemetry/cadvisor
       when: telemetry_cadvisor_enable | default(True)
+    - role: telemetry/fluentd
+      when: "telemetry_fluentd_enable | default(True)"
     - role: telemetry/grafana
       when: "telemetry_grafana_enable | default(True)"
+        

@@ -101,6 +101,25 @@ kubernetes_cnis:
 # Calico's CIDR (will be included automatically to noproxy when calico is included in kubernetes_cnis)
 calico_cidr: "10.245.0.0/16"
 
+### Split Network
+# for splitting management network and cluster network
+# need to provide calico cluster ip, kubernetes service host and port
+# Enable Split Network
+split_network: false
+
+# static ip cidr
+static_ip_cidr: "192.168.133.1/24"
+
+# NIC mac address for setting static ip (in order sepcified in inventory.yml)
+node_device_mac:
+  - 52:54:00:6c:04:ed
+controller_device_mac:
+  - 52:54:00:9e:34:37
+
+# Kubernetes service port
+kubernetes_service_port: "6443"
+kubernetes_service_port_https: "6443"
+
 ## SmartEdge namespaces
 system_namespace: "smartedge-system"
 application_namespace: "smartedge-apps"
@@ -110,6 +129,25 @@ project_dir: "/opt/smartedge"
 
 # SmartEdge users group
 project_group: "{{ ansible_user }}"
+
+# OpenEBS settings
+openebs_enabled: false
+openebs_namespace: "openebs"
+
+# Rook ceph settings
+rook_ceph_enabled: false
+rook_ceph_namespace: "rook-ceph"
+
+rook_ceph:
+  mon_count: 1
+  host_name: "{{ hostvars[groups['controller_group'][0]]['ansible_nodename'] }}"
+  osds_per_device: "1"
+  replica_pool_size: 1
+
+# Kube-virt settings
+kubevirt_enable: false
+kubevirt_namespace: "kubevirt"
+cdi_namespace: "cdi"
 
 ## SR-IOV Network Operator
 sriov_network_operator_enable: true
@@ -128,10 +166,10 @@ cvl_sriov_nics:
     c1p0: "p5p1"
     c1p1: "p5p2"
   Debian:
-    c0p0: "{{ 'enp137s0f0' if ansible_product_name == 'MOROCITY' else 'eno12399' }}"
-    c0p1: "{{ 'enp137s0f1' if ansible_product_name == 'MOROCITY' else 'eno12409' }}"
-    c1p0: "{{ 'enp137s0f2' if ansible_product_name == 'MOROCITY' else 'ens5f0' }}"
-    c1p1: "{{ 'enp137s0f3' if ansible_product_name == 'MOROCITY' else 'ens5f1' }}"
+    c0p0: "eno12399"
+    c0p1: "eno12409"
+    c1p0: "ens5f0"
+    c1p1: "ens5f1"
 
 # SriovNetworkNodePolicies list
 sriov_network_node_policies:
@@ -214,25 +252,6 @@ sriov_networks:
 ## Enable OOT driver update for E810
 e810_driver_enable: True
 
-### Software Guard Extensions
-# SGX requires kernel 5.11+, SGX enabled in BIOS and access to PCC service
-sgx_enabled: "{{ false if ansible_product_name == 'MOROCITY' else true }}"
-
-## Install HWE Kernel for SGX
-install_hwe_kernel_enable: true
-
-# PCCS server IP address
-sgx_pccs_ip: ""
-
-# PCCS server port address
-sgx_pccs_port: "32666"
-
-# To accept insecure HTTPS cert, set this option to FALSE
-sgx_use_secure_cert: false
-
-# Provide a token to access PCCS
-pccs_user_token: ""
-
 ### Kubernetes Topology Manager configuration (for worker)
 # CPU settings
 cpu:
@@ -274,6 +293,7 @@ telemetry_prometheus_remote_write_targets: []
 telemetry_prometheus_nodeport: 30000
 # To expose the Prometheus on NodeIP, set this variable to True
 telemetry_prometheus_nodeport_expose: false
+telemetry_prometheus_tls_secret_name: prometheus-tls
 
 # Prometheus-statsd-exporter
 telemetry_statsd_exporter_enable: true
@@ -286,6 +306,14 @@ telemetry_cadvisor_enable: true
 # Telegraf
 telemetry_telegraf_enable: true
 telemetry_telegraf_port: 9105
+#Fluentd
+telemetry_fluentd_enable: false
+telemetry_fluentd_forward_targets: []
+# Example:
+# telemetry_fluentd_forward_targets:
+# - name: testForward
+#   port: 24224
+#   host: <ip>/<DNS resolveable hostname>
 ###############
 
 ## Docker registry mirrors
@@ -318,7 +346,7 @@ harbor_timeout_min: 5
 ## Platform attestation specific configurations
 
 # Install isecl attestation components (TA, ihub, isecl k8s controller and scheduler extension)
-platform_attestation_node: "{{ false if ansible_product_name == 'MOROCITY' else true }}"
+platform_attestation_node: true
 
 # CMS hash from Intel-secl controller. Use following command:
 # kubectl get secrets/cms-tls-cert-sha384 -n isecl --template={{.data.CMS_TLS_CERT_SHA384}} | base64 -d
@@ -333,6 +361,25 @@ isecl_nfs_server_clients: []
 # Host IP of node hosting isecl controlplane(core) services. This could be hosted on cloud as well.
 isecl_control_plane_ip: ""
 
+# Host IP of node hosting KMRA AppHSM service
+kmra_apphsm_ip: ""
+
+### Software Guard Extensions
+# SGX requires kernel 5.11+, SGX enabled in BIOS and access to PCC service
+sgx_enabled: true
+
+## Install HWE Kernel for SGX
+install_hwe_kernel_enable: true
+
+# PCCS server IP address
+sgx_pccs_ip: ""
+
+# PCCS server port address
+sgx_pccs_port: "32666"
+
+# To accept insecure HTTPS cert, set this option to FALSE
+sgx_use_secure_cert: false
+
 ###############
 ## PCCS for SGX
 
@@ -342,8 +389,6 @@ pccs_api_key: ""
 # PCCS client
 pccs_user_password: ""
 
-# PCCS administrator
-pccs_admin_password: ""
 
 # NodePort to access PCCS from outside of cluster
 # pccs_access_port: 32666
@@ -354,3 +399,6 @@ install_userspace_drivers_enable: false
 # SRIOV-FEC operator
 sriov_fec_operator_enable: false
 sriov_fec_operator_configure_enable: false
+
+## Network Service Mesh
+nsm_enable: false

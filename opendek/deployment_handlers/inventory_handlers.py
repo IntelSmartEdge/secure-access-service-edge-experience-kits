@@ -61,7 +61,7 @@ class Inventory: # pylint: disable=too-many-instance-attributes
         inventory_path = os.path.join(path, self.__inventory_filename)
         if not os.path.exists(path):
             os.mkdir(path)
-        with open(inventory_path, 'w') as inventory_file:
+        with open(inventory_path, 'w', encoding="utf-8") as inventory_file:
             yaml.dump(self.__inventory_doc, inventory_file)
         return inventory_path
 
@@ -97,7 +97,7 @@ class InventoryHandler:
         return len(self.__inventories)
 
     def __load_inventory(self, inventory_path):
-        with open(inventory_path, 'r') as inventory_stream:
+        with open(inventory_path, 'r', encoding="utf-8") as inventory_stream:
             doc_iterator = yaml.load_all(inventory_stream, Loader=yaml.SafeLoader)
             self.__inventories = []
             for doc in doc_iterator:
@@ -105,7 +105,7 @@ class InventoryHandler:
 
     def __verify_cluster_names(self):
         cluster_names = []
-        for i in range(len(self.__inventories)):
+        for i, _ in enumerate(self.__inventories):
             cluster_name = self.__inventories[i].cluster_name
             if cluster_name in cluster_names:
                 raise ValueError("Cluster names must be different")

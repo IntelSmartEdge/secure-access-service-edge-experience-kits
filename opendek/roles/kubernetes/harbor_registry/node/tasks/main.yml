@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2021 Intel Corporation
+# Copyright (c) 2021-2022 Intel Corporation
 
 ---
 # Source variables from controlplane role
@@ -24,15 +24,18 @@
   become: yes
 
 - name: Extract admin password
-  command: kubectl get secret --namespace harbor harbor-admin -o jsonpath="{.data.admin-password}"
+  command: kubectl get secret --namespace harbor harbor-app-core -o jsonpath="{.data.HARBOR_ADMIN_PASSWORD}"
   register: harbor_password_cmd
   delegate_to: "{{ groups['controller_group'][0] }}"
   changed_when: false
+  no_log: true
 
 - name: store admin password
   set_fact:
     harbor_admin_password: "{{ harbor_password_cmd.stdout | b64decode }}"
+  no_log: true
     
 - name: Log into Harbor registry
   command: docker login {{ _registry_ip_address }}:{{ _registry_port }} -u admin -p {{ harbor_admin_password }}
   changed_when: false
+  no_log: true

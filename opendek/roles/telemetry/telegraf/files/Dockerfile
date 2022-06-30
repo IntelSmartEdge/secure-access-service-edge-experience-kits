@@ -6,13 +6,13 @@ FROM telegraf:$TELEGRAF_TAG AS builder
 
 RUN apk update && \
     apk add --update --no-cache \
-    build-base=~0.5-r2 \
-    bash=~5.1.8-r0 \
-    sudo=~1.9.8_p2-r1 \
-    git=~2.34.1-r0 \
-    alpine-sdk=~1.0-r1 \
-    libffi-dev=~3.4.2-r1 \
-    openssl-dev=~1.1.1n-r0 && \
+    build-base=~0.5 \
+    bash=~5.1 \
+    sudo=~1.9 \
+    git=~2.34 \
+    alpine-sdk=~1.0 \
+    libffi-dev=~3.4 \
+    openssl-dev=~1.1 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR "/telegraf_docker/"
@@ -27,16 +27,16 @@ FROM alpine:3.15.0
 RUN export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" && \
     apk update && \
     apk add --update --no-cache \
-    util-linux=~2.37.4-r0 \
-    bash=~5.1.16-r0 \
-    sudo=~1.9.8_p2-r1 \
-    smartmontools=~7.2-r1 \
-    nvme-cli=~1.16-r0 \
-    rasdaemon=~0.6.7-r0 \
-    iptables=~1.8.7-r1 \
-    ipmitool=~1.8.18-r10 \
-    su-exec=~0.2-r1 \
-    iputils=~20210722-r0 && \
+    util-linux=~2.37 \
+    bash=~5.1 \
+    sudo=~1.9 \
+    smartmontools=~7.2 \
+    nvme-cli=~1.16 \
+    rasdaemon=~0.6 \
+    iptables=~1.8 \
+    ipmitool=~1.8 \
+    su-exec=~0.2 \
+    iputils=~20210722 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR "/telegraf_docker/"

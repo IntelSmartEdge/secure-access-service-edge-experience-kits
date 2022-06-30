@@ -17,7 +17,7 @@ cadvisor:
       cpu: "1"
       memory: "2Gi"
   disabledMetrics: "percpu,diskIO,tcp,udp,disk,sched"
-  storeContainerLabels: false
+  storeContainerLabels: true
   maxHousekeepingInterval: "30s"
   dockerOnly: true
 
@@ -38,3 +38,7 @@ proxy:
     - "TLS_AES_256_GCM_SHA384"
     - "ECDHE-RSA-AES256-GCM-SHA384"
     - "ECDHE-ECDSA-AES256-GCM-SHA384"
+
+# Service Monitor
+sm:
+  secretName: "{{ telemetry_prometheus_tls_secret_name }}"

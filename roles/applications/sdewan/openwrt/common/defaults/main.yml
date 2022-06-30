@@ -11,23 +11,55 @@
 # other than those that are expressly stated in the License.
 
 ---
+##################################################
+##### ICN-SDWAN Settings
+cni_version: 0.3.1
+icn_sdwan_repo: "https://github.com/akraino-edge-stack/icn-sdwan" 
+icn_sdwan_dir: "{{ project_dir }}/sdewan/"
+icn_commit: prod-22.06
+scc_image: scc
+cnf_chart_name: icn-sdewan-cnf
+crd_ctrl_chart_name: icn-sdewan-ctrl
 
-sdewan_crd_commit: EWO_v1.0
-cert_link: "https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml"
-helm_cmd: /usr/local/bin/helm
-number_of_clean_retries: 1
-clean_retry_delay: 2
-sdwan_number_of_retries: 50
-sdwan_retry_delay: 10
-sdewan_helm_charts_dir: "{{ project_dir }}/sdewan/charts"
-kubebuilder_link: "https://go.kubebuilder.io/dl/2.3.1/linux/amd64"
-kubebuilder_download_name: "kubebuilder_2.3.1_linux_amd64"
-kubebuilder_download_dest: "/tmp/{{ kubebuilder_download_name }}.tar.gz"
-kubebuilder_tar_folder: "/tmp/{{ kubebuilder_download_name }}"
-kubebuilder_bin_folder: "/usr/local/kubebuilder"
-sdewan_crd_url: https://{{ git_repo_token }}@github.com/smart-edge-open/ewo
-sdwan_crd_image: integratedcloudnative/sdewan-controller:dev
-sdwan_crd_image_path: "{{ sdewan_helm_charts_dir }}/ewo/platform/crd-ctrlr/src"
-sdwan_cnf_path: "{{ sdewan_helm_charts_dir }}/ewo/platform/cnf-openwrt/src"
-sdwan_no_proxy: "localhost,120.0.0.1,192.168.*"
-empty_file_size: 100
+sase_golang_version: 1.17
+sase_golang_download_name: "go{{ sase_golang_version }}.linux-amd64.tar.gz"
+sase_golang_download_url_base: "https://dl.google.com/go/"
+sase_golang_download_url: "{{ sase_golang_download_url_base }}{{ sase_golang_download_name }}"
+sase_golang_download_dest: "{{ icn_sdwan_dir }}/golang/"
+sase_golang_download_checksum: "sha256:6bf89fc4f5ad763871cf7eac80a2d594492de7a818303283f1366a7f6a30372d"
+
+network_conf:
+  # Default Configuration
+  - pnets: 
+      - network_name: pnetwork
+        subnet_name: subnet
+        vlanID: 301
+        network_cidr: "10.10.70.0/24"
+  # Add customized configuration here, e.g. 
+      # - network_name: pnetwork2
+      #   subnet_name: subnet2
+      #   vlanID: 302
+      #   network_cidr: "10.20.70.0/24"
+    onets:
+      - network_name: ovn-network
+        subnet_name: subnet1
+        network_cidr: "172.16.70.0/24"
+  # Add customized configuration here, e.g. 
+      # - network_name: ovn-network2
+      #   subnet_name: subnet2
+      #   network_cidr: "172.16.70.0/24"
+
+#network_firewallrule:
+#  - rules:
+#      - name: "firewallrule-sample" # you can customize
+#        namespace: "sdewan-system"  # sdewan safe cnf namespace
+#        sdewanPurpose: "base"       # sdewan safe cnf sdewanPurpose
+#        src: "eth0"  # network card name. Both pyhsical and virtual cark are ok
+#        src_ip: "192.168.100.0"
+#        src_port: "80"
+#        proto: "tcp" # Can be one of tcp, udp, tcpudp, udplite, icmp, esp, ah, sctp, or all
+#        dest: "eth0"
+#        dest_ip: "192.168.100.1"
+#        dest_port: "80"
+#        target: "ACCEPT"  #(Required) Firewall action (ACCEPT, REJECT, DROP, MARK, NOTRACK) for matched traffic
+##################################################

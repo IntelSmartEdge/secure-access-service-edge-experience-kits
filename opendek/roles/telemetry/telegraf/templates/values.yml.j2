@@ -22,3 +22,6 @@ certs:
   ciphers: '["TLS_RSA_WITH_AES_256_GCM_SHA384","TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384","TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"]'
   tls_min: TLS12
   tls_max: TLS13
+
+sm:
+  secretName: "{{ telemetry_prometheus_tls_secret_name }}"

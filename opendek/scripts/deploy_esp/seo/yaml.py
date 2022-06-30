@@ -6,6 +6,7 @@
 import logging
 import sys
 
+# pylint: disable=import-error
 import seo.error
 
 try:
@@ -24,7 +25,7 @@ def load(file_path):
     logging.debug("Trying to read and parse yaml file ('%s')", file_path)
 
     try:
-        with open(file_path) as input_file:
+        with open(file_path, encoding="utf-8") as input_file:
             raw_data = input_file.read()
     except (FileNotFoundError, PermissionError) as e:
         raise seo.error.AppException(

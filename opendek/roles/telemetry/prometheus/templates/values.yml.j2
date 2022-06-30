@@ -90,15 +90,15 @@ prometheus:
     tlsConfig:
       keySecret:
         key: tls.key
-        name: "{{ _prometheus_tls_secret_name }}"
+        name: "{{ telemetry_prometheus_tls_secret_name }}"
       ca:
         secret:
           key: ca.crt
-          name: "{{ _prometheus_tls_secret_name }}"
+          name: "{{ telemetry_prometheus_tls_secret_name }}"
       cert:
         secret:
           key: tls.crt
-          name: "{{ _prometheus_tls_secret_name }}"
+          name: "{{ telemetry_prometheus_tls_secret_name }}"
       insecureSkipVerify: true # Prometheus should trust itself
     relabelings:
       - action: labelmap
@@ -119,8 +119,8 @@ prometheus:
   # Prometheus server options
   prometheusSpec:
     # How often should Prometheus scrape data
-    scrape_interval: "{{ telemetry_prometheus_scrape_interval_seconds }}s"
-    scrape_timeout: 5s
+    scrapeInterval: "{{ telemetry_prometheus_scrape_interval_seconds }}s"
+    scrapeTimeout: 20s
     # How long should Prometheus keep metrics
     retention: "{{ telemetry_prometheus_retention }}"
     image:
@@ -130,15 +130,15 @@ prometheus:
       tlsConfig:
         keySecret:
           key: tls.key
-          name: "{{ _prometheus_tls_secret_name }}"
+          name: "{{ telemetry_prometheus_tls_secret_name }}"
         client_ca:
           secret:
             key: ca.crt
-            name: "{{ _prometheus_tls_secret_name }}"
+            name: "{{ telemetry_prometheus_tls_secret_name }}"
         cert:
           secret:
             key: tls.crt
-            name: "{{ _prometheus_tls_secret_name }}"
+            name: "{{ telemetry_prometheus_tls_secret_name }}"
         clientAuthType: RequestClientCert
     remoteWrite: {{ telemetry_prometheus_remote_write_targets }}
     storageSpec:

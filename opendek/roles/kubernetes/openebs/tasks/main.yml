@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+
+- name: create directory for openebs 
+  file:
+       path: "{{ _openebs_files_dir }}"
+       state: directory
+       recurse: yes
+       mode: a=rx,u+w,g+w
+  changed_when: true
+
+- name: Clone Openebs
+  git:
+    repo: "{{ _openebs_helm_charts }}"
+    dest: "{{ _openebs_files_dir }}"
+    clone: yes
+    force: yes
+    version: "{{ _openebs_helm_charts_ver }}"
+
+- name: remove openebs helm if exists
+  block:
+    - name: check if openebs helm deployment exists
+      command: helm status -n "{{ openebs_namespace }}" "{{ _openebs_helm_release_name }}"
+      ignore_errors: yes
+      register: get_release
+    - name: remove openebs helm deployment
+      command: helm uninstall -n "{{ openebs_namespace }}" "{{ _openebs_helm_release_name }}"
+      when: get_release.rc == 0
+      changed_when: true
+
+- name: prepare drives
+  include_tasks: prepare_drives.yml
+
+- name: copy storageclass template to host
+  template:
+    src: storageclass.yaml.j2
+    dest: "{{ _openebs_files_dir }}/storageclass.yaml"
+    mode: a=rw,u+x
+
+- name: copy storageclass_shared template to host
+  template:
+    src: storageclass_shared.yaml.j2
+    dest: "{{ _openebs_files_dir }}/storageclass_shared.yaml"
+    mode: a=rw,u+x
+
+- name: prepare openEBS helm charts
+  command: helm dependency update
+  args:
+    chdir: "{{ _openebs_files_dir }}/charts/openebs"
+  changed_when: true
+
+- name: Install OpenEBS
+  command: helm install "{{ _openebs_helm_release_name }}" openebs --namespace "{{ openebs_namespace }}" \
+    --create-namespace --set legacy.enabled=false --set lvm-localpv.enabled=true --set localpv-provisioner.enabled=true --set ndmExporter.enabled=true
+  args:
+    chdir: "{{ _openebs_files_dir }}/charts/"
+  changed_when: true
+
+- name: Launch and configure
+  command: kubectl apply -f "{{ _openebs_files_dir }}/{{ item }}"
+  loop:
+  - "storageclass_shared.yaml"
+  - "storageclass.yaml"
+  changed_when: true

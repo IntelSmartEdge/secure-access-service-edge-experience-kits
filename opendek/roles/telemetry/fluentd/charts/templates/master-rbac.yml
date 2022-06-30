@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.fluentdMaster.name}}
+  namespace: {{.Values.namespace}}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentd.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.fluentdMaster.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentd.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.fluentdMaster.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentd.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Values.fluentdMaster.name }}
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.fluentdMaster.name }}
+    namespace: {{ .Values.namespace }}

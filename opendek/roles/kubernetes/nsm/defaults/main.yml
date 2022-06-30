@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+_nsm_git_repo_url: "https://github.com/networkservicemesh/deployments-k8s"
+_nsm_version: "v1.3.1"

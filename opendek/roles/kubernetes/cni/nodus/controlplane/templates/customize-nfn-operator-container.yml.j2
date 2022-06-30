@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+- op: replace
+  path: "/spec/template/spec/containers/0/image"
+  value: "{{ _nodus_image_src }}{{ _nodus_image_name }}:{{ _nodus_image_tag }}"

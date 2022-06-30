@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+- name: verify that fluentd DaemonSet deployed correctly
+  check_k8s_object:
+    name: fluentd
+    namespace: telemetry
+    kind: daemonset
+
+- name: verify that fluentd-master deployment deployed correctly
+  check_k8s_object:
+    name: fluentd-master
+    namespace: telemetry
+    kind: deployment

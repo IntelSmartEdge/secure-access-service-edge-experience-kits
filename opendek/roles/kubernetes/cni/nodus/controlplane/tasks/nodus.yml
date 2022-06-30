@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+# NOTE: "Nodus" is a new name for CNI previously known as "ovn4nfv".
+# Many Nodus resources still use "ovn4nfv" in naming,
+# that is why "ovn4nfv" is widely seen in this ansible role.
+
+- name: Check if nodus exist
+  shell: >
+    set -o pipefail && kubectl get pods -n kube-system \
+    -l "app in (nfn-agent,nfn-operator,ovn-control-plane,ovn-controller,ovn4nfv-cni)" | wc -l
+  changed_when: false
+  register: get_nodus
+  failed_when: get_nodus.rc | int > 1
+
+- name: Deploy nodus
+  block:
+    - name: open firewall rules
+      include_role:
+        name: infrastructure/firewall_open_ports
+      vars:
+        fw_open_ports: "{{ nodus_open_ports }}"
+        
+    - name: nodus | Label control-plane node
+      command: >-
+        kubectl label --overwrite node {{ ansible_nodename }}
+        ovn4nfv-k8s-plugin=ovn-control-plane
+      changed_when: true
+
+    - name: create temporary directory
+      tempfile:
+        state: directory
+        suffix: nodus
+      register: tmp_dir
+
+    - name: pull nodus images
+      docker_image:
+        name: "{{ _nodus_image_src }}{{ item.name }}"
+        tag: "{{ item.tag }}"
+        source: pull
+      loop:
+        - { name: "{{ _nodus_image_name }}", tag: "{{ _nodus_image_tag }}"}
+        - { name: "{{ _ovn_daemon_image_name }}", tag: "{{ _ovn_daemon_image_tag }}"}
+
+    - name: download nodus manifest files
+      get_url:
+        url: "{{ _nodus_cni_url }}/{{ item }}"
+        dest: "{{ tmp_dir.path }}/{{ item }}"
+      register: result
+      retries: "{{ number_of_retries }}"
+      until: result is succeeded
+      delay: "{{ retry_delay }}"
+      loop:
+        - "{{ _nodus_plugin_file }}"
+        - "{{ _ovn_daemon_file }}"
+
+    - name: copy kustomization.yml file
+      copy:
+        src: "nodus-cni/kustomization.yml"
+        dest: "{{ tmp_dir.path }}"
+        mode: preserve
+
+    - name: check if proxy is enabled
+      set_fact:
+        _proxy_enabled: >
+          {{ proxy_env is defined and
+            (('http_proxy' in proxy_env and proxy_env['http_proxy'] | length) or
+             ('https_proxy' in proxy_env and proxy_env['https_proxy'] | length) or
+             ('ftp_proxy' in proxy_env and proxy_env['ftp_proxy'] | length) | bool) | default(False) }}
+
+    - name: create kustomization file for proxy addition to nodus manifest
+      template:
+        src: "{{ item }}.j2"
+        dest: "{{ tmp_dir.path }}/{{ item }}"
+        mode: preserve
+      loop:
+        - customize-ovn4nfv-container-proxy.yml
+      when: _proxy_enabled
+
+    - name: create kustomization files for customizing nodus containers' details
+      template:
+        src: "{{ item }}.j2"
+        dest: "{{ tmp_dir.path }}/{{ item }}"
+        mode: preserve
+      loop:
+        - customize-nodus-cidr.yml
+        - customize-ovn4nfv-cni-container.yml
+        - customize-nfn-agent-container.yml
+        - customize-nfn-operator-container.yml
+        - customize-ovn-control-plane-container.yml
+        - customize-ovn-controller-container.yml
+
+    - name: apply kustomized Nodus manifests
+      command: "kubectl apply -k {{ tmp_dir.path }}"
+
+    - name: wait for Nodus resources to start
+      command: >
+        kubectl wait --for=condition=ready pod -l "app in (nfn-agent,nfn-operator,ovn-control-plane,ovn-controller,ovn4nfv-cni)" \
+        -n kube-system --timeout=300s
+      changed_when: false
+
+    - name: deploy NetworkAttachmentDefinition
+      block:
+        - name: copy NetworkAttachmentDefinition file
+          copy:
+            src: "nodus-cni/attach-network-ovn.yml"
+            dest: "{{ tmp_dir.path }}"
+            mode: preserve
+        - name: apply NetworkAttachmentDefinition file
+          command: "kubectl apply -f {{ tmp_dir.path }}/attach-network-ovn.yml"
+      when:
+        - apply_netdef is defined
+        - apply_netdef
+
+  when: get_nodus.stdout | int == 0

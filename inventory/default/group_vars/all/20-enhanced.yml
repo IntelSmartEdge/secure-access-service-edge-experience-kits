@@ -14,3 +14,19 @@
 # This file contains variables intended to be configured by user.
 # It allows feature enabling and configuration.
 # Features should not be configured by changing roles' defaults (i.e. role/defaults/main.yml)
+
+### Network Edge's Kubernetes CNIs
+# List of requested CNIs to be used in Network Edge mode
+# CNIs are applied in order of definition
+# Multus CNI is implicit - it will be applied as 2nd one if list contains more than 1
+# Available CNIs:
+# - calico (note: if the calico CNI is used, then it must be main/primary CNI, i.e. first on the list)
+# - nodus (note: nodsus as main/primary CNI is not supported)
+kubernetes_cnis:
+  - calico
+  - nodus
+
+# Nodus CIDR
+nodus_cidr: "10.210.0.0/16"
+
+icn_cnf_ip_suffix: 19

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+- op: replace
+  path: "/spec/template/spec/containers/0/resources/requests/cpu"
+  value: "{{ ovn_control_plane_cpu_request }}"
+- op: replace
+  path: "/spec/template/spec/containers/0/resources/requests/memory"
+  value: "{{ ovn_control_plane_memory_request }}"
+- op: replace
+  path: "/spec/template/spec/containers/0/image"
+  value: "{{ _nodus_image_src }}{{ _ovn_daemon_image_name }}:{{ _ovn_daemon_image_tag }}"

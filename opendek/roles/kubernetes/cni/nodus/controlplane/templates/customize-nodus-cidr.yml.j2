@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ovn-controller-network
+  namespace: kube-system
+data:
+  OVN_SUBNET: "{{ nodus_cidr }}"
+  OVN_GATEWAYIP: "{{ nodus_cidr|ipaddr('net')|ipaddr(1) }}"

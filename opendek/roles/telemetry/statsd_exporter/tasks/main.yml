@@ -3,7 +3,7 @@
 
 ---
 - name: check if prometheus-statsd-exporter already exists
-  shell: set -o pipefail && kubectl get pods -n {{ telemetry_namespace }} | grep statsd-exporter
+  command: kubectl get deployment -n {{ telemetry_namespace }} {{ _statsd_fullname_override }}
   ignore_errors: true
   changed_when: false
   register: get_statsd_exporter

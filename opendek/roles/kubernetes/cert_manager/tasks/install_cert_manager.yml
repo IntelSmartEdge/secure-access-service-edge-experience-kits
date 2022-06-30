@@ -20,7 +20,8 @@
   command:
     argv:
       - helm
-      - install
+      - upgrade
+      - --install
       - --repo
       - "{{ _cert_manager_chart_repo_url }}"
       - --namespace

@@ -18,3 +18,18 @@
     - name: placeholder for additional SASE EK roles
       debug:
         msg: SASE EK infrastructure playbook
+    
+    - name: prepare yq for easy yaml edit 
+      block: 
+        - name: get yq binary
+          get_url:
+            url: https://github.com/mikefarah/yq/releases/download/v4.24.4/yq_linux_amd64 
+            dest: "{{ project_dir }}/yq_linux_amd64"
+            mode: a=r,u+w
+
+        - name: move yq to path
+          copy:
+            src: "{{ project_dir }}/yq_linux_amd64"
+            dest: /usr/local/bin/yq
+            mode: a=rx,u+x
+          become: true

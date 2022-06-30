@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: JoinConfiguration
+caCertPath: /etc/kubernetes/pki/ca.crt
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: {{ hostvars[groups['controller_group'][0]]['ansible_host'] }}:6443
+    token: "{{ token.stdout }}"
+    caCertHashes: [{{ discovery_token_ca_cert_hash.stdout }}]
+    unsafeSkipCAVerification: true
+  timeout: 5m0s
+nodeRegistration:
+  criSocket: /var/run/dockershim.sock
+  name: {{ k8s_worker_node_name }}
+  taints: null
+  kubeletExtraArgs:
+{% if cgroupfs_enable is defined and cgroupfs_enable %}
+    cgroup-driver: "cgroupfs"
+    kubelet-cgroups: ""
+{% else %}
+    cgroup-driver: "systemd"
+    kubelet-cgroups: "/systemd/system.slice"
+{% endif %}
+    feature-gates: "TopologyManager={{ false if topology_manager.policy == 'none' else true }}"
+{% if topology_manager is defined and topology_manager.policy is defined and topology_manager.policy != 'none' %}
+    topology-manager-policy: {{ topology_manager.policy }}
+{% endif %}
+{% if cpu is defined and cpu.policy is defined and cpu.policy == 'static' %}
+    cpu-manager-policy: {{ cpu.policy }}
+    reserved-cpus: {{ cpu.reserved_cpus }}
+{% endif %}

@@ -14,13 +14,13 @@
 # (providing only token is not enough, since ESP requires username as well)
 # It is assumed that both repositories (ESP and profiles) are on the same github site,
 # accessible with the same personal token belonging to same user.
-github:
+git:
   user: ''
-  token: ''
+  password: '' # The 'password' field accepts one of two values git password or token.
 
 esp:
   url: https://github.com/intel/Edge-Software-Provisioner
-  branch: v2.0.3
+  branch: v2.0.4
   dest_dir: './esp'
 
 dnsmasq:
@@ -46,109 +46,141 @@ docker:
     username: ""
     password: ""
 
-# ntp server address used during deploy
+# ntp server address used during deploy, recommended to enable for SASE
 ntp_server: ''
 
 # list of profiles (at least one profile should be defined)
 profiles:
-  - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit_Pop
+  - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit
     url: https://github.com/smart-edge-open/profiles.git
-    branch: smart-edge-open-22.02
+    branch: smart-edge-open-22.05
     scenario: single-node       # possible scenarios: single-node, multi-node
     experience_kit:
       url: https://github.com/smart-edge-open/secure-access-service-edge-experience-kits
-      branch: smart-edge-open-22.02
-      deployment: pop
+      branch: smart-edge-open-22.05
+      deployment: sase
     controlplane_mac: ''
     account:
       username: smartedge-open
       password: smartedge-open
+    bios:
+      tpm: false
+      secure_boot: false
     # to further customize ansible configuration for each group and each host,
     # put that config in a form of YAML syntax, under desired group/host section below.
     group_vars:
       groups:
         all:
-# Please change according to the document
-#          sgx_enabled: true
-#          sgx_pccs_ip:
-#          sgx_pccs_port: "32666"
-#          sgx_use_secure_cert: false
-#          pccs_user_token:
-#          pccs_api_key:
-#          pccs_user_password:
-#          pccs_admin_password:
-#          platform_attestation_node: true
-#          isecl_cms_tls_hash:
-#          isecl_control_plane_ip:
-#          proxy_env:
-#            http_proxy: http://proxy.example.com:[port]
-#            https_proxy: http://proxy.example.com:[port]
-#            all_proxy: socks5://proxy.example.com:[port]
+          pccs_enable: false
+          # enable on demand
+          install_hwe_kernel_enable: false
+          sgx_enabled: false
+          platform_attestation_node: false
+          sriov_network_operator_enable: false
+          sriov_network_operator_configure_enable: false
+          e810_driver_enable: false
+          kubevirt_enable: false
+          rook_ceph_enabled: false
+          telemetry_enable: false
         controller_group:
         edgenode_group:
-    sideload:
-      # If extra file has to be used in the process of deployment and copied to provisioned machine, point to it here.
-      # It should be list of items eg.
-      # - file_path: "/root/syscfg_package.zip"
-      #   dest_path: "/opt/seo/biosfw/"
-    # Define additional inventory groups where hosts belong to.
-    # Note: some Experience Kits require to provide at least a group name with no hosts.
 
-  - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit_Edge
+  - name: Smart_Edge_Open_Secure_Access_Service_Edge_Experience_Kit_Dell_R750
     url: https://github.com/smart-edge-open/profiles.git
-    branch: smart-edge-open-22.02
+    branch: smart-edge-open-22.05
     scenario: single-node       # possible scenarios: single-node, multi-node
     experience_kit:
       url: https://github.com/smart-edge-open/secure-access-service-edge-experience-kits
-      branch: smart-edge-open-22.02
-      deployment: edge
+      branch: smart-edge-open-22.05
+      deployment: sase
     controlplane_mac: ''
     account:
       username: smartedge-open
       password: smartedge-open
+    bios:
+      tpm: true
+      secure_boot: true
     # to further customize ansible configuration for each group and each host,
     # put that config in a form of YAML syntax, under desired group/host section below.
     group_vars:
       groups:
         all:
-# Please change according to the document
-#          sgx_enabled: true
-#          sgx_pccs_ip:
-#          sgx_pccs_port: "32666"
-#          sgx_use_secure_cert: false
-#          pccs_user_token:
-#          pccs_api_key:
-#          pccs_user_password:
-#          pccs_admin_password:
-#          platform_attestation_node: true
-#          isecl_cms_tls_hash:
-#          isecl_control_plane_ip:
-#          proxy_env:
-#            http_proxy: http://proxy.example.com:[port]
-#            https_proxy: http://proxy.example.com:[port]
-#            all_proxy: socks5://proxy.example.com:[port]
+          pccs_enable: false
+          sgx_enabled: true
+          install_hwe_kernel_enable: true
+          platform_attestation_node: true
+          sriov_network_operator_enable: true
+          sriov_network_operator_configure_enable: true
+          e810_driver_enable: true
+          kubevirt_enable: true
+          # MUST customize BEFORE use sgx/isecl/PA
+          # sgx_pccs_ip: ""
+          # sgx_pccs_port: "32666"
+          # isecl_control_plane_ip: ""
+          # isecl_cms_tls_hash: ""
+          # kmra_apphsm_ip: ""
+          # pccs_api_key: ""
+          # pccs_user_password: ""
         controller_group:
         edgenode_group:
-    sideload:
-      # If extra file has to be used in the process of deployment and copied to provisioned machine, point to it here.
-      # It should be list of items eg.
-      # - file_path: "/root/syscfg_package.zip"
-      #   dest_path: "/opt/seo/biosfw/"
-    # Define additional inventory groups where hosts belong to.
-    # Possible host names: controller, node01
-    # Note: some Experience Kits require to provide at least a group name with no hosts.
 
-#please change according to document
-#
-#bios:
-#  tpm: true
-#  secure_boot: true
+  - name: SASE_ISecL_Controller_and_SDEWAN_Controller
+    url: https://github.com/smart-edge-open/profiles.git
+    branch: smart-edge-open-22.05
+    scenario: single-node       # possible scenarios: single-node, multi-node
+    experience_kit:
+      url: https://github.com/smart-edge-open/secure-access-service-edge-experience-kits
+      branch: smart-edge-open-22.05
+      deployment: verification_controller
+    controlplane_mac: ''
+    account:
+      username: smartedge-open
+      password: smartedge-open
+    bios:
+      tpm: false
+      secure_boot: false
+    # to further customize ansible configuration for each group and each host,
+    # put that config in a form of YAL syntax, under desired group/host section below.
+    group_vars:
+      groups:
+        all:
+          # refer to opendek/deployments/verification_controller/all.yml
+          platform_attestation_controller: true
+          # a sample isecl_ta_san_list, customize before use
+          isecl_ta_san_list: ""
+          pccs_enable: true
+          kmra_enable: true
+          psp_enabled: true
+          sgx_prv_gid: 1002
+          cpu: {}
+          sgx_enabled: false
+          install_hwe_kernel_enable: false
+          platform_attestation_node: false
+          sriov_network_operator_enable: false
+          sriov_network_operator_configure_enable: false
+          e810_driver_enable: false
+          kubevirt_enable: false
+          rook_ceph_enabled: false
+          telemetry_enable: false
+          harbor_registry_enable: false
+          ne_nfd_enable: false
+          # MUST customize BEFORE use sgx/isecl/PA
+          # pccs_api_key: ""
+          # pccs_user_password: ""
+        controller_group:
+        edgenode_group:
 
-#bmc:
-#  address:
-#  user:
-#  password:
-
+# hosts:
+#   # full example for this element
+#   - name: master # this will be set as a hostname
+#     mac: 11:22:33:44:55:66 # this host can be identified from the profile to set a hostname
+#     bmc: # bmc settings
+#       address: 1.2.3.4 # bmc address
+#       user: user # bmc user name
+#       password: password # bmc password
+#     bios: # bios settings
+#       tpm: false # TPM
+#       secure_boot: false # Secure Boot
 
 usb_images:
   build: true             # change to false to disable any USB image building

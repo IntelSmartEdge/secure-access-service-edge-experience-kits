@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+nodus_open_ports:
+  - 6641/tcp
+  - 6642/tcp
+  - 6081/udp

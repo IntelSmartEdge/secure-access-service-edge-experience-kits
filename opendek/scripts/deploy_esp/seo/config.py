@@ -9,6 +9,7 @@ import os.path
 
 import jsonschema
 
+# pylint: disable=import-error
 import seo.error
 import seo.yaml
 
@@ -18,8 +19,8 @@ def validate(config, config_path, schema):
 
         The config_path parameter serves the error message composition purposes only
     """
-
-    validator = jsonschema.Draft7Validator(schema)
+    validator = jsonschema.Draft7Validator(schema,
+            format_checker=jsonschema.draft7_format_checker)
 
     if validator.is_valid(config):
         return
@@ -48,7 +49,8 @@ def load_provisioning_cfg(config_path, root_path):
 
     cfg = seo.yaml.load(config_path)
     schema_path = os.path.join(root_path, "config_schema.json")
-    schema = json.load(open(schema_path))
+    with open(schema_path, encoding="utf-8") as schema_file:
+        schema = json.load(schema_file)
 
     # Fundamental schema validation:
     validate(cfg, config_path, schema)

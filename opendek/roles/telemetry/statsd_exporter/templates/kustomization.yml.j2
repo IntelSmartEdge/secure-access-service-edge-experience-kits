@@ -43,18 +43,7 @@ patchesJson6902:
           - name: certs
             secret:
               secretName: {{ _proxy_secret_name }}
-  - target:
-      kind: Service
-      version: v1
-      name: {{ _statsd_fullname_override }}
-    patch: |-
-      - op: replace
-        path: /spec/ports/0
-        value:
-          port: {{ _proxy_container.metrics_statsd_port }}
-          targetPort: https
-          protocol: TCP
-          name: https
+
   - target:
       name: .*
     patch: |-

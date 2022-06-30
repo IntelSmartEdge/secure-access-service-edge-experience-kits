@@ -3,19 +3,19 @@
 
     "type": "object",
     "properties": {
-        "github": {
+        "git": {
             "type": "object",
             "properties": {
                 "user": { "type": "string" },
-                "token": { "type": "string" }
+                "password": { "type": "string" }
             },
-            "required": ["user", "token"]
+            "required": ["user", "password"]
         },
         "ntp_server": { "type": "string" },
         "esp": {
             "type": "object",
             "properties": {
-                "url": { "type": "string" },
+                "url": { "$ref": "#/$defs/url" },
                 "branch": { "type": "string" },
                 "dest_dir": { "type": "string" }
             },
@@ -61,13 +61,14 @@
                 "type": "object",
                 "properties": {
                     "name": { "type": "string" },
-                    "url": { "type": "string" },
+                    "url": { "$ref": "#/$defs/url" },
+                    "path": { "type": "string" },
                     "branch": { "type": "string" },
                     "scenario": { "enum": ["single-node", "multi-node"] },
                     "experience_kit": {
                         "type": "object",
                         "properties": {
-                            "url": { "type": "string" },
+                            "url": { "$ref": "#/$defs/url" },
                             "branch": { "type": "string" },
                             "deployment": { "type": "string" }
                         },
@@ -80,7 +81,11 @@
                 },
                 "then": {
                     "required": ["experience_kit"]
-                }
+                },
+                "oneOf": [
+                    { "required": ["path"] },
+                    { "required": ["url"] }
+                ]
             },
             "minItems": 1
         },
@@ -91,7 +96,7 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "name": { "type": "string" },
+                    "name": { "$ref": "#/$defs/hostname"},
                     "mac": { "type": "string" },
                     "bios": { "$ref": "#/$defs/bios" },
                     "bmc": { "$ref": "#/$defs/bmc" }
@@ -106,7 +111,12 @@
             "minItems": 1
         }
     },
+    "required": ["profiles"],
     "$defs": {
+        "url": {
+            "type": "string",
+            "pattern": "https?:\/\/"
+            },
         "bmc": {
             "type": "object",
             "properties": {
@@ -123,6 +133,12 @@
                 "secure_boot": {"type": "boolean"}
                 },
             "minProperties": 1
+            },
+        "hostname": {
+            "type": "string",
+            "pattern": "^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9]).)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$",
+            "minLength": 2,
+            "maxLength": 63
             }
         }
 }

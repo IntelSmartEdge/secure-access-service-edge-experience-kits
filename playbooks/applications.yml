@@ -20,8 +20,5 @@
       set_fact: node_name={{ ansible_nodename | lower }}
 
   roles:
-    - role: applications/sdewan/openwrt/edge
-      when: sdewan_edge_enable | default(False)
-
-    - role: applications/sdewan/openwrt/pop
-      when: sdewan_pop_enable | default(False)
+    - role: applications/sdewan/openwrt/sase
+      when: icn_sdewan_enable | default(False)

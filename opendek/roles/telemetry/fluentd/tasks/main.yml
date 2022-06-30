@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+- name: check if fluentd already exists
+  command: helm status fluentd -n {{ telemetry_namespace }}
+  failed_when: false
+  changed_when: false
+  register: get_fluentd
+
+- name: install fluentd
+  block:
+    - name: create certificates for fluentd
+      include_role:
+        name: kubernetes/certs
+      vars:
+        tls_secret_name: "{{ _tls_secret_name }}"
+        desired_namespace: "{{ telemetry_namespace }}"
+        dns_names: ['fluentd']
+    - name: copy Helm chart to the master node
+      copy:
+        src: "{{ role_path }}/charts/"
+        dest: "{{ _fluentd_chart_dir }}"
+        mode: preserve
+        force: yes
+    - name: template values.yml file into Chart directory
+      template:
+        src: values.yaml.j2
+        dest: "{{ _fluentd_chart_dir }}/values.yaml"
+        mode: preserve
+    - name: install fluentd using Helm
+      command: "helm install fluentd --namespace telemetry {{ _fluentd_chart_dir }}"
+      changed_when: true
+  when: get_fluentd.rc != 0

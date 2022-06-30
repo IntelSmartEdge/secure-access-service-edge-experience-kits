@@ -117,12 +117,10 @@ def check_daemonset(output):
             result = True
             message = "Daemonset seems to be running normally"
         else:
-            message = "Not enough available replicas {}/{}".format(
-                available, desired
-            )
+            message = f"Not enough available replicas {available}/{desired}"
     except KeyError as err:
-        message = "Could not find the {} field in status - most probably the amount is 0".\
-            format(",".join(err.args))
+        err_args = ",".join(err.args)
+        message = f"Could not find the {err_args} field in status - most probably the amount is 0"
 
     return (result, message)
 
@@ -141,12 +139,10 @@ def check_statefulset(output):
             result = True
             message = "Statefulset seems to be running normally"
         else:
-            message = "Not enough ready replicas {}/{}".format(
-                ready_replicas, replicas
-            )
+            message = f"Not enough ready replicas {ready_replicas}/{replicas}"
     except KeyError as err:
-        message = "Could not find the {} field in status - most probably the amount is 0".\
-            format(",".join(err.args))
+        err_args = ",".join(err.args)
+        message = f"Could not find the {err_args} field in status - most probably the amount is 0"
 
     return (result, message)
 
@@ -165,12 +161,10 @@ def check_deployment(output):
             result = True
             message = "Deployment seems to be running normally"
         else:
-            message = "Not enough available replicas {}/{}".format(
-                available, replicas
-            )
+            message = f"Not enough available replicas {available}/{replicas}"
     except KeyError as err:
-        message = "Could not find the {} field in status - most probably the amount is 0".\
-            format(",".join(err.args))
+        err_args = ",".join(err.args)
+        message = f"Could not find the {err_args} field in status - most probably the amount is 0"
 
     return (result, message)
 

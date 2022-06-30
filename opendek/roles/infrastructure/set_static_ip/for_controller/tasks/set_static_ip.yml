@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020-2021 Intel Corporation
+
+---
+
+- name: get mac address
+  shell: set -o pipefail && echo "{{ mac_address }}" | awk '{print substr($0,3,length($0)-4)}'
+  register: mac_address_modified
+  changed_when: true
+
+- name: get device name for specified mac address on controller
+  shell: set -o pipefail && ip link | grep {{ mac_address_modified.stdout }} -B 1 | awk 'NR==1 {print substr($2,1,length($2)-1)}'
+  register: controller_device_name
+  changed_when: true
+
+- name: generate ip address from ip pool - step 1
+  shell: set -o pipefail && echo "{{ static_ip_cidr }}" | awk '{print substr($0,1,length($0)-4)}'
+  register: temp_ip
+  changed_when: true
+
+- name: generate ip address from ip pool - step 2
+  shell: set -o pipefail && echo "{{ static_ip_cidr }}" | awk -F '.' '{print substr($4,1,length($4)-3)}'
+  register: last_ip
+  changed_when: true
+
+- name: generate ip address from ip pool - step 3
+  shell: set -o pipefail && echo $(({{ last_ip.stdout }} + {{ groups['all'].index(inventory_hostname) }})) 
+  register: last_ip
+  changed_when: true
+
+- name: judge if ip is valid
+  shell: if [ {{ last_ip.stdout }} -gt 255 ]; then echo "false"; else echo "true"; fi
+  register: if_valid_ip
+  changed_when: true
+
+- name: fail if ip not valid
+  fail: msg="invalid ip cidr given"
+  when: if_valid_ip.stdout == "false"
+
+- name: generate ip address from ip pool - step 4
+  shell: set -o pipefail && echo "{{ temp_ip.stdout }}{{ last_ip.stdout }}"
+  register: temp_ip
+  changed_when: true
+
+- name: store controller ip for calico_cluster_ip
+  shell: echo "{{ temp_ip.stdout }}" > /tmp/calico_cluster_ip
+  changed_when: true
+
+- name: store controller ip for kubernetes_service_host
+  shell: echo "{{ temp_ip.stdout }}" > /tmp/kubernetes_service_host
+  changed_when: true
+
+- name: set controller ip as facts
+  set_fact:
+    calico_cluster_ip: "{{ temp_ip.stdout }}"
+    kubernetes_service_host: "{{ temp_ip.stdout }}"
+
+- name: allocate ip
+  replace:
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ controller_device_name.stdout }}"
+    regexp: "BOOTPROTO=.*$"
+    replace: "BOOTPROTO=static\nIPADDR={{ temp_ip.stdout }}"
+
+- name: set onboot as yes
+  replace:
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ controller_device_name.stdout }}"
+    regexp: "ONBOOT=.*$"
+    replace: "ONBOOT=yes"
+
+- name: restart network
+  systemd:
+    name: network
+    daemon_reload: true
+    state: restarted
+  become: yes

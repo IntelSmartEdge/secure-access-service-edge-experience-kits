@@ -21,6 +21,14 @@
       when: sgx_enabled | default(False)
     - role: kubernetes/nfd
       when: "ne_nfd_enable | default(True)"
+    - role: kubernetes/kubevirt
+      when: kubevirt_enable | default(False)
+    - role: kubernetes/rook_ceph
+      when: rook_ceph_enabled | default(False)
+    - role: kubernetes/openebs
+      when: openebs_enabled | default(False)
+    - role: kubernetes/nsm
+      when: ne_nsm_enable | default(False)
 
 - hosts: edgenode_group
   any_errors_fatal: true

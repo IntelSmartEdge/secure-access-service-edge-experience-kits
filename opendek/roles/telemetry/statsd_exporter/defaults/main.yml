@@ -7,7 +7,9 @@ _statsd_helm_repo:
   url: https://prometheus-community.github.io/helm-charts
   name: prometheus-statsd-exporter
 
-_statsd_fullname_override: "statsd-exporter"
+helm_dir_path: "{{ ne_helm_charts_default_dir }}/prometheus-statsd-exporter"
+
+_statsd_fullname_override: "prometheus-statsd-exporter"
 
 _statsd_exporter_files:
   - "deployment.yaml"
@@ -16,7 +18,6 @@ _statsd_exporter_files:
 
 _proxy_server_name: statsd-exporter
 _proxy_secret_name: statsd-exporter-tls
-_proxy_certs_dest: /opt/statsd/certs
 _proxy_cm_name: statsd-proxy-cm
 
 _proxy_container:
@@ -28,10 +29,3 @@ _proxy_container:
   metrics_statsd_port: 9103
   config_map: statsd-exporter-proxy-cm
   certs_dest: /opt/statsd/certs
-
-_proxy_nginx_conf:
-  protocols: TLSv1.2 TLSv1.3
-  ciphers:
-    - "TLS_AES_256_GCM_SHA384"
-    - "ECDHE-RSA-AES256-GCM-SHA384"
-    - "ECDHE-ECDSA-AES256-GCM-SHA384"

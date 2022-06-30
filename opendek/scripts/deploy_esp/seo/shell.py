@@ -14,5 +14,5 @@ def create_variables_file(path, variables):
 
         content += f'export {name}={value}\n'
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(content)

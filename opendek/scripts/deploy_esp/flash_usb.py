@@ -34,6 +34,7 @@ import urllib.parse
 import urllib.error
 from socket import timeout
 
+# pylint: disable=import-error
 import seo.error
 import seo.git
 import seo.stage
@@ -53,7 +54,7 @@ def parse_args(default_config_path, experience_kit_name):
 
     experience_kit_name = (
         "" if experience_kit_name is None else
-        "{0:s} ".format(experience_kit_name))
+        "{experience_kit_name:s} ")
 
     p = argparse.ArgumentParser(
         description=f"""Start the Smart Edge Open {experience_kit_name} USB flash process.""")
@@ -81,7 +82,7 @@ def get_config(config_file_path):
     logging.debug("Trying to read and parse provisioning configuration file ('%s')", config_file_path)
 
     try:
-        with open(config_file_path) as config_file:
+        with open(config_file_path, encoding="utf-8") as config_file:
             raw_config = config_file.read()
     except (FileNotFoundError, PermissionError) as e:
         raise seo.error.AppException(
@@ -144,6 +145,7 @@ def check_preconditions(args):
                 f"    {url}")
 
         try:
+            # pylint: disable=consider-using-with
             urllib.request.urlopen(url, timeout=1)  # nosec - bandit: security considered
         except (urllib.error.HTTPError, urllib.error.URLError, timeout) as e:
             raise seo.error.AppException(

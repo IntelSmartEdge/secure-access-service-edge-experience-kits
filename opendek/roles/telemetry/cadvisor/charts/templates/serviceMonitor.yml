@@ -25,16 +25,16 @@ spec:
         ca:
           secret:
             key: ca.crt
-            name: {{ .Values.proxy.secretName }}
+            name: {{ .Values.sm.secretName }}
             optional: false
         cert:
           secret:
             key: tls.crt
-            name: {{ .Values.proxy.secretName }}
+            name: {{ .Values.sm.secretName }}
             optional: false
         keySecret:
           key: tls.key
-          name: {{ .Values.proxy.secretName }}
+          name: {{ .Values.sm.secretName }}
           optional: false
         insecureSkipVerify: true
       relabelings:

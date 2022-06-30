@@ -15,7 +15,7 @@
     cni_weight: 10
 
 - name: wait for cluster to go into ready state
-  command: kubectl wait --for=condition=Ready node --all --timeout=10m
+  command: kubectl wait --for=condition=Ready node --all --timeout=30m
   changed_when: false
   when: "'controller_group' in group_names"
 

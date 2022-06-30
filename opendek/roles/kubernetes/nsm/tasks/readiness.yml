@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021 Intel Corporation
+
+---
+
+- name: load nsm vars
+  include_vars: ../defaults/main.yml
+
+- name: check nsm daemonset
+  check_k8s_object:
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "{{ nsm_deployment_namespace }}"
+  with_items:
+  - { kind: "daemonset", name: "nsmgr" }
+  - { kind: "daemonset", name: "forwarder-vpp" }
+  - { kind: "deployment", name: "registry-k8s" }
+  - { kind: "daemonset", name: "nsm-vpp-forwarder" }
+  

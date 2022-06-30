@@ -187,7 +187,7 @@ def handle_cluster_inventory_dir(cluster_inventory_path, group_vars_path, host_v
     create_symlinks_for_inventory(DEFAULT_HOST_VARS_PATH, host_vars_path)
 
 
-def run_deployment(inventory, cleanup=False, redeploy=False):
+def run_deployment(inventory, cleanup=False, redeploy=False, reconfig=False):
     """Deploys Smart Edge with given settings, returns Popen object"""
     inventory_dir = os.path.join(ALT_INVENTORIES_PATH, inventory.cluster_name)
     inventory_location = inventory.dump_to_yaml(inventory_dir)
@@ -204,6 +204,8 @@ def run_deployment(inventory, cleanup=False, redeploy=False):
         playbook = "network_edge_5g_cleanup.yml"
     elif extra_options_supported and redeploy:
         playbook = "network_edge_5g_redeploy.yml"
+    elif extra_options_supported and reconfig:
+        playbook = "network_nic_reconfig.yml"
     else:
         if inventory.is_single_node:
             playbook = "single_node_network_edge.yml"
@@ -226,7 +228,7 @@ def run_deployment(inventory, cleanup=False, redeploy=False):
         inventory.cluster_name,
         playbook_basename)
     # pylint disable because log_file is a long living object.
-    log_file = open(deployment_log_file_path, "a+") # pylint: disable=bad-option-value,consider-using-with
+    log_file = open(deployment_log_file_path, "a+", encoding="utf-8") # pylint: disable=bad-option-value,consider-using-with
 
     logging.info('%s %s: command: "%s"',
                  inventory.cluster_name, playbook_basename, ansible_playbook_command)
@@ -376,6 +378,8 @@ def parse_arguments():
                         help="Run 5G re-deployment scripts on clusters. Supported only in 5G "
                              "Private Wireless Experience Kit. Not supported in Open Developer "
                              "Experience Kit.")
+    parser.add_argument("-rnic", "--recfgnic", dest="reconfig", action="store_true",
+                        help="Run NIC reconfig scripts on clusters")
     return parser.parse_args()
 
 
@@ -408,7 +412,7 @@ def main(args):
 
     prepare_alt_dir_layout()
     for inventory in inventory_handler.get_inventories:
-        deploy_wrapper = run_deployment(inventory, args.clean, args.redeploy)
+        deploy_wrapper = run_deployment(inventory, args.clean, args.redeploy, args.reconfig)
         deployment_wrappers.append(deploy_wrapper)
         time.sleep(DEPLOYMENT_INTERVAL)
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2020 Intel Corporation
+# Copyright (c) 2020-2022 Intel Corporation
 
 ---
 
@@ -7,7 +7,7 @@ expose:
   # Set the way how to expose the service. Set the type as "ingress",
   # "clusterIP", "nodePort" or "loadBalancer" and fill the information
   # in the corresponding section
-  type: {{expose_type}}
+  type: "{{ expose_type }}"
   tls:
     # Enable the tls or not.
     # Delete the "ssl-redirect" annotations in "expose.ingress.annotations" when TLS is disabled and "expose.type" is "ingress"
@@ -15,7 +15,7 @@ expose:
     # is disabled, the port must be included in the command when pull/push
     # images. Refer to https://github.com/goharbor/harbor/issues/5291
     # for the detail.
-    enabled: {{tls_enable}}
+    enabled: "{{ tls_enable }}"
     # The source of the tls certificate. Set it as "auto", "secret"
     # or "none" and fill the information in the corresponding section
     # 1) auto: generate the tls certificate automatically
@@ -27,7 +27,7 @@ expose:
     auto:
       # The common name used to generate the certificate, it's necessary
       # when the type isn't "ingress"
-      commonName: "{{common_name}}"
+      commonName: "{{ common_name }}"
     secret:
       # The name of secret which contains keys named:
       # "tls.crt" - the certificate
@@ -278,65 +278,6 @@ persistence:
     filesystem:
       rootdirectory: /storage
       #maxthreads: 100
-    azure:
-      accountname: accountname
-      accountkey: base64encodedaccountkey
-      container: containername
-      #realm: core.windows.net
-    gcs:
-      bucket: bucketname
-      # The base64 encoded json file which contains the key
-      encodedkey: base64-encoded-json-key-file
-      #rootdirectory: /gcs/object/name/prefix
-      #chunksize: "5242880"
-    s3:
-      region: us-west-1
-      bucket: bucketname
-      #accesskey: awsaccesskey
-      #secretkey: awssecretkey
-      #regionendpoint: http://myobjects.local
-      #encrypt: false
-      #keyid: mykeyid
-      #secure: true
-      #skipverify: false
-      #v4auth: true
-      #chunksize: "5242880"
-      #rootdirectory: /s3/object/name/prefix
-      #storageclass: STANDARD
-      #multipartcopychunksize: "33554432"
-      #multipartcopymaxconcurrency: 100
-      #multipartcopythresholdsize: "33554432"
-    swift:
-      authurl: https://storage.myprovider.com/v3/auth
-      username: username
-      password: password
-      container: containername
-      #region: fr
-      #tenant: tenantname
-      #tenantid: tenantid
-      #domain: domainname
-      #domainid: domainid
-      #trustid: trustid
-      #insecureskipverify: false
-      #chunksize: 5M
-      #prefix:
-      #secretkey: secretkey
-      #accesskey: accesskey
-      #authversion: 3
-      #endpointtype: public
-      #tempurlcontainerkey: false
-      #tempurlmethods:
-    oss:
-      accesskeyid: accesskeyid
-      accesskeysecret: accesskeysecret
-      region: regionname
-      bucket: bucketname
-      #endpoint: endpoint
-      #internal: false
-      #encrypt: false
-      #secure: true
-      #chunksize: 10M
-      #rootdirectory: rootdirectory
 
 imagePullPolicy: IfNotPresent
 
@@ -355,7 +296,7 @@ updateStrategy:
 logLevel: info
 
 # The initial password of Harbor admin. Change it from portal after launching Harbor
-harborAdminPassword: "{{harbor_admin_password}}"
+harborAdminPassword: "{{ harbor_admin_password }}"
 
 # The name of the secret which contains key named "ca.crt". Setting this enables the
 # download link on portal to download the certificate of CA when the certificate isn't
@@ -556,22 +497,13 @@ registry:
   relativeurls: false
   credentials:
     username: "harbor_registry_user"
-    password: "harbor_registry_password"
+    password: "{{ harbor_user_password }}"
     # If you update the username or password of registry, make sure use cli tool htpasswd to generate the bcrypt hash
     # e.g. "htpasswd -nbBC10 $username $password"
-    htpasswd: "harbor_registry_user:$2y$10$9L4Tc0DJbFFMB6RdSCunrOpTHdwhid4ktBJmLD00bYgqkkGOvll3m"
+    htpasswd: "{{ harbor_user_bcrypt_hash.stdout }}"
 
   middleware:
     enabled: false
-    type: cloudFront
-    cloudFront:
-      baseurl: example.cloudfront.net
-      keypairid: KEYPAIRID
-      duration: 3000s
-      ipfilteredby: none
-      # The secret key that should be present is CLOUDFRONT_KEY_DATA, which should be the encoded private key
-      # that allows access to CloudFront
-      privateKeySecret: "my-secret"
 
 chartmuseum:
   enabled: true
@@ -735,7 +667,7 @@ database:
       repository: goharbor/harbor-db
       tag: "{{ _harbor_app_version }}"
     # The initial superuser password for internal database
-    password: "changeit"
+    password: "{{ harbor_db_password }}"
     # The size limit for Shared memory, pgSQL use it for shared_buffer
     # More details see:
     # https://github.com/goharbor/harbor/issues/15034
@@ -770,31 +702,6 @@ database:
       #  requests:
       #    memory: 128Mi
       #    cpu: 100m
-  external:
-    host: "192.168.0.1"
-    port: "5432"
-    username: "user"
-    password: "password"
-    coreDatabase: "registry"
-    notaryServerDatabase: "notary_server"
-    notarySignerDatabase: "notary_signer"
-    # "disable" - No SSL
-    # "require" - Always SSL (skip verification)
-    # "verify-ca" - Always SSL (verify that the certificate presented by the
-    # server was signed by a trusted CA)
-    # "verify-full" - Always SSL (verify that the certification presented by the
-    # server was signed by a trusted CA and the server host name matches the one
-    # in the certificate)
-    sslmode: "disable"
-  # The maximum number of connections in the idle connection pool.
-  # If it <=0, no idle connections are retained.
-  maxIdleConns: 50
-  # The maximum number of open connections to the database.
-  # If it <= 0, then there is no limit on the number of open connections.
-  # Note: the default number of connections is 1024 for postgre of harbor.
-  maxOpenConns: 1000
-  ## Additional deployment annotations
-  podAnnotations: {}
 
 redis:
   # if external Redis is used, set "type" to "external"
@@ -879,22 +786,6 @@ metrics:
   ##
   serviceMonitor:
     enabled: false
-    additionalLabels: {}
-    # Scrape interval. If not set, the Prometheus default scrape interval is used.
-    interval: ""
-    # Metric relabel configs to apply to samples before ingestion.
-    metricRelabelings: []
-      # - action: keep
-      #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
-      #   sourceLabels: [__name__]
-    # Relabel configs to apply to samples before ingestion.
-    relabelings: []
-      # - sourceLabels: [__meta_kubernetes_pod_node_name]
-      #   separator: ;
-      #   regex: ^(.*)$
-      #   targetLabel: nodename
-      #   replacement: $1
-      #   action: replace
  
 trace:
   enabled: false

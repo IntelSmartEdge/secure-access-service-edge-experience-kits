@@ -14,12 +14,6 @@
   tags: always
 
 - block:
-    - name: kernel
-      include_tasks: ../roles/infrastructure/custom_kernel/tasks/readiness.yml
-  tags: kernel
-  when: not (skip_kernel | default(True))
-
-- block:
     - name: kubernetes/install
       include_tasks: ../roles/kubernetes/install/tasks/readiness.yml
     - name: kubernetes/controlplane
@@ -35,6 +29,14 @@
       include_tasks: ../roles/kubernetes/harbor_registry/controlplane/tasks/readiness.yml
       when: "'controller_group' in group_names"
   tags: harbor
+
+- block:
+    - name: sriov network operator
+      include_tasks: ../roles/baseline_ansible/kubernetes/operator/sriov_network_operator/tasks/readiness.yml
+  tags: sriov
+  when:
+    - "'controller_group' in group_names"
+    - sriov_network_operator_enable | default(False)
 
 - block:
     - name: calico
@@ -74,6 +76,14 @@
       include_tasks: ../roles/telemetry/telegraf/tasks/readiness.yml
       when:
         - telemetry_telegraf_enable | default(True)
+    - name: fluentd
+      include_tasks: ../roles/telemetry/fluentd/tasks/readiness.yml
+      when:
+        - telemetry_fluentd_enable | default(True)
+    - name: grafana
+      include_tasks: ../roles/telemetry/grafana/tasks/readiness.yml
+      when:
+        - telemetry_grafana_enable | default(True)
     - name: prometheus
       include_tasks: ../roles/telemetry/prometheus/tasks/readiness.yml
     - name: node-exporter
@@ -90,3 +100,63 @@
   when:
     - "'controller_group' in group_names"
     - ne_istio_enable | default(False)
+
+- block:
+  - name: rook-ceph readiness check
+    include_tasks: ../roles/kubernetes/rook_ceph/tasks/readiness.yml
+    when:
+      - "'controller_group' in group_names"
+      - rook_ceph_enabled | default(False)
+  tags: rook_ceph
+
+- block:
+  - name: OpenEBS readiness check
+    include_tasks: ../roles/kubernetes/openebs/tasks/readiness.yml
+    when:
+      - "'controller_group' in group_names"
+      - openebs_enabled | default(False)
+  tags: openebs
+
+- block:
+  - name: kubevirt readiness check
+    include_tasks: ../roles/kubernetes/kubevirt/tasks/readiness.yml
+    when:
+      - "'controller_group' in group_names"
+      - kubevirt_enable | default(False)
+  tags: kubevirt
+
+- block:
+  - name: pccs
+    include_tasks: ../roles/security/pccs/tasks/readiness.yml
+    when:
+      - pccs_enable | default(False)
+  tags: pccs
+
+- block:
+  - name: sgx_device_plugin
+    include_tasks: ../roles/kubernetes/sgx_device_plugin/tasks/readiness.yml
+    when:
+      - sgx_enabled | default(False)
+  tags: sgx_device_plugin
+
+- block:
+  - name: ISecL verification controller
+    include_tasks:  ../roles/security/isecl/verification_controller/tasks/readiness.yml
+  when:
+    - platform_attestation_controller | default(False)
+  tags: isecl_verification_controller
+
+- block:
+  - name: ISecL edge node services
+    include_tasks:  ../roles/security/isecl/controlplane/tasks/readiness.yml
+  when:
+    - platform_attestation_node | default(True)
+  tags: isecl_edge_services
+
+- block:
+  - name: nsm
+    include_tasks: ../roles/kubernetes/nsm/tasks/readiness.yml
+  tags: nsm
+  when:
+    - "'controller_group' in group_names"
+    - ne_nsm_enable | default(False)

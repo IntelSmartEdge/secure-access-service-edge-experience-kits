@@ -1,62 +1,99 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2021 Intel Corporation
 ---
-- name: Create temporary directory for PCCS build&installation
-  tempfile:
-    state: directory
-  register: temp_dir
+- name: check if PCCS already exists
+  command: helm status pccs -n {{ _pccs_namespace }}
+  failed_when: false
+  register: pccs_installed
+  changed_when: false
 
-- name: Clone PCCS repo
-  git:
-    repo: "{{ _pccs_repo }}"
-    dest: "{{ temp_dir.path }}"
-    version: "{{ _pccs_version }}"
+- name: install PCCS chart
+  block:
+    - name: Create {{ _pccs_namespace }} namespace if doesn't exist
+      include_role:
+        name: baseline_ansible/kubernetes/custom_namespace
+      vars:
+        - _custom_ns: ["{{ _pccs_namespace }}"]
 
-- name: Build docker image
-  docker_image:
-    name: "{{ _pccs_image_name }}"
-    tag: "{{ _pccs_image_tag }}"
-    source: build
-    build:
-      path: "{{ temp_dir.path }}/QuoteGeneration/pccs/container"
-      pull: true
+    - name: Generate certificates for PCCS
+      include_role:
+        name: kubernetes/certs
+      vars:
+        tls_secret_name: "{{ _pcss_certificate_secret_name }}"
+        desired_namespace: "{{ _pccs_namespace }}"
+        dns_names: ["pccs"]
 
-- name: Create {{ _pccs_namespace }} namespace if doesn't exist
-  include_role:
-    name: baseline_ansible/kubernetes/custom_namespace
-  vars:
-    - _custom_ns: ["{{ _pccs_namespace }}"]
+    - name: Create charts directory
+      file:
+        state: directory
+        path: "{{ _pcss_chart_dir }}"
+        mode: u+rwx
+ 
+    - name: Copy helm chart files
+      copy:
+        src: "{{ item }}"
+        dest: "{{ _pcss_chart_dir }}"
+        directory_mode: u+rwx
+        mode: u+rw
+      loop:
+        - Chart.yaml
+        - templates
 
-- name: Generate certificates for PCCS
-  include_role:
-    name: kubernetes/certs
-  vars:
-    tls_secret_name: "{{ _pcss_certificate_secret_name }}"
-    desired_namespace: "{{ _pccs_namespace }}"
-    dns_names: ["pccs"]
+    - name: delete old pccs admin secret if it exists
+      command: kubectl delete secret -n {{ _pccs_namespace }} pccs-admin --ignore-not-found=true
+      changed_when: true
 
-- name: Create charts directory
-  file:
-    state: directory
-    path: "{{ _pcss_chart_dir }}"
-    mode: u+rwx
+    - name: generate admin password
+      set_fact:
+        pccs_admin_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
+      no_log: true
 
-- name: Copy helm chart files
-  copy:
-    src: "{{ item }}"
-    dest: "{{ _pcss_chart_dir }}" 
-    directory_mode: u+rwx
-    mode: u+rw
-  loop:
-    - Chart.yaml
-    - templates
+    - name: create pccs admin secret
+      command: >
+        kubectl create secret -n {{ _pccs_namespace }} generic pccs-admin
+        --from-literal=admin-password={{ pccs_admin_password }}
+      changed_when: true
+      no_log: true
 
-- name: Template values.yml
-  template:
-    src: values.yml
-    dest: "{{ _pcss_chart_dir }}/values.yml"
-    mode: u+rw
+    - name: delete old pccs sqlite secret if it exists
+      command: kubectl delete secret -n {{ _pccs_namespace }} pccs-sqlite --ignore-not-found=true
+      changed_when: true
 
-- name: Install PCCS
-  command: helm install --namespace={{ _pccs_namespace }} pccs -f "{{ _pcss_chart_dir }}/values.yml" {{ _pcss_chart_dir }}
-  changed_when: yes
+    - name: generate sqlite password
+      set_fact:
+        pccs_sqlite_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
+      no_log: true
+
+    - name: create pccs sqlite secret
+      command: >
+        kubectl create secret -n {{ _pccs_namespace }} generic pccs-sqlite
+        --from-literal=sqlite-password={{ pccs_sqlite_password }}
+      changed_when: true
+      no_log: true
+
+    - name: delete old pccs mysql secret if it exists
+      command: kubectl delete secret -n {{ _pccs_namespace }} pccs-mysql --ignore-not-found=true
+      changed_when: true
+
+    - name: generate mysql password
+      set_fact:
+        pccs_mysql_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
+      no_log: true
+
+    - name: create pccs mysql secret
+      command: >
+        kubectl create secret -n {{ _pccs_namespace }} generic pccs-mysql
+        --from-literal=mysql-password={{ pccs_mysql_password }}
+      changed_when: true
+      no_log: true
+
+    - name: Template values.yml
+      template:
+        src: values.yml
+        dest: "{{ _pcss_chart_dir }}/values.yml"
+        mode: u+rw
+
+    - name: Install PCCS
+      command: helm install --namespace={{ _pccs_namespace }} pccs -f "{{ _pcss_chart_dir }}/values.yml" {{ _pcss_chart_dir }}
+      changed_when: yes
+  when: pccs_installed.rc != 0

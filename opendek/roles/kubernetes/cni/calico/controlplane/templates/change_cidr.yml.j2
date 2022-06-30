@@ -14,3 +14,13 @@ spec:
           env:
             - name: CALICO_IPV4POOL_CIDR
               value: "{{ calico_cidr }}"
+{% if split_network is defined and split_network %}
+            - name: KUBERNETES_SERVICE_HOST
+              value: "{{ kubernetes_service_host }}"
+            - name: KUBERNETES_SERVICE_PORT
+              value: "{{ kubernetes_service_port }}"
+            - name: KUBERNETES_SERVICE_PORT_HTTPS
+              value: "{{ kubernetes_service_port_https }}"    
+            - name: ETCD_ENDPOINTS
+              value: "{{ kubernetes_service_host }}"
+{% endif %}

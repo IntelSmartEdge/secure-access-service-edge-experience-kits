@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+_openebs_main_dir: "/opt/smartedge/helm-charts/openebs"
+_openebs_files_dir: "{{ _openebs_main_dir }}/files"
+
+_openebs_helm_charts: "https://github.com/openebs/charts.git"
+_openebs_helm_charts_ver: "openebs-3.2.0"
+_openebs_helm_release_name: "openebs"

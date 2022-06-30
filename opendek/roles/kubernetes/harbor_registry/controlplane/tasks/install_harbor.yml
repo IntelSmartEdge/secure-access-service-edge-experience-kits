@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2021 Intel Corporation
+# Copyright (c) 2021-2022 Intel Corporation
 ---
 - name: download helm-harbor repo
   git:
@@ -8,25 +8,24 @@
     version: "{{ _harbor_helm_tag }}"
     update: false
 
-- name: generate admin password
-  set_fact:
-    harbor_admin_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
-
 - name: create namespace for harbor
   include_role:
     name: baseline_ansible/kubernetes/custom_namespace
   vars:
     - _custom_ns: ["{{ _harbor_namespace }}"]
 
-- name: delete old Harbor admin secret if it exists
-  command: kubectl delete secret -n {{ _harbor_namespace }} harbor-admin --ignore-not-found=true
-  changed_when: true
+- name: generate passwords for harbor user, admin and database
+  set_fact:
+    harbor_admin_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
+    harbor_db_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
+    harbor_user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits') }}"
+  no_log: true
 
-- name: create Harbor admin secret
-  command: >
-    kubectl create secret -n {{ _harbor_namespace }} generic harbor-admin
-    --from-literal=admin-password={{ harbor_admin_password }}
-  changed_when: true
+- name: generate bcrypt hash for harbor_registry_user
+  command: "htpasswd -nbB harbor_registry_user {{ harbor_user_password  }}"
+  register: harbor_user_bcrypt_hash
+  changed_when: false
+  no_log: true
 
 - name: copy harbor helm chart values.j2 replace default values.yml
   template:

@@ -61,6 +61,21 @@
     - customize_calico_conf.yml
     - change_cidr.yml
 
+- name: get value for calico_cluster_ip for split network
+  command: cat /tmp/calico_cluster_ip
+  register: calico_cluster_ip
+  delegate_to: "{{ groups['controller_group'][0] }}"
+  changed_when: true
+  when: split_network | default(false)
+
+- name: modify customize_calico_container.yml for split network feature of PWEK
+  lineinfile:
+    dest: "{{ tmp_dir.path }}/customize_calico_container.yml"
+    regexp: "value: \"can-reach=.*$"
+    line: "    value: \"can-reach={{ calico_cluster_ip.stdout }}\""
+  become: yes
+  when: split_network | default(false)
+
 - name: Add Kubernetes service host to the calico configmap
   block:
     - name: get the endpoint IP

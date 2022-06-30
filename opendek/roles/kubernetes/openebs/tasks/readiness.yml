@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2021-2022 Intel Corporation
+
+---
+
+- name: verify OpenEBS deployments
+  check_k8s_object:
+    name: "{{ item }}"
+    namespace: openebs
+    kind: deployment
+  loop:
+  - openebs-localpv-provisioner
+  - openebs-ndm-cluster-exporter
+  - openebs-ndm-operator
+
+- name: verify OpenEBS daemonsets
+  check_k8s_object:
+    name: "{{ item }}"
+    namespace: openebs
+    kind: daemonset
+  loop:
+  - openebs-lvm-localpv-node
+  - openebs-ndm
+  - openebs-ndm-node-exporter

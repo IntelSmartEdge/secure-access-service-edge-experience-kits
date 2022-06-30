@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2020 Intel Corporation
+
+---
+
+- name: declare an empty list for storing the dev
+  set_fact:
+    disk_devices: []
+- name: count the number of disks
+  set_fact:
+    disk_devices: "{{ disk_devices + [item.key] }}"
+  when:
+  - item.key.startswith('sd') or item.key.startswith('nvme') or item.key.startswith('vd') or item.key.startswith('xvd')
+  - item.value is not search('usb-*')
+  loop: "{{ ansible_devices | dict2items }}"
+- name: list the disk devices in the edge node
+  debug:
+    msg: "available disk devices in the node {{ disk_devices }}"
+
+- name: fail if only one disk is present in the node
+  fail:
+   msg: "Only 1 disk is present in the node, can't deploy rook-ceph/OpenEBS"
+  when:
+  - (disk_devices | length) == 1
+

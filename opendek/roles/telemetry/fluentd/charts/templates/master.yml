@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.fluentdMaster.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentdMaster.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      name: {{ .Values.fluentdMaster.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.fluentdMaster.name }}
+        app: {{ .Values.fluentd.name }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        chart: {{ .Release.Name }}
+        name: {{ .Values.fluentdMaster.name }}
+    spec:
+      serviceAccount: {{ .Values.fluentdMaster.name }}
+      serviceAccountName: {{ .Values.fluentdMaster.name }}
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: {{ .Values.fluentdMaster.name }}
+          image: {{ .Values.fluentdMaster.image }}
+          resources:
+            limits:
+              memory: {{ .Values.fluentdMaster.memory }}
+            requests:
+              cpu: {{ .Values.fluentdMaster.cpu }}
+              memory: {{ .Values.fluentdMaster.memory }}
+          ports:
+            - name: {{ .Values.fluentdMaster.portName }}
+              containerPort: {{ .Values.fluentdMaster.port }}
+          volumeMounts:
+            - name: {{ .Values.fluentdMasterConfigmap.name }}
+              mountPath: {{ .Values.fluentdMasterConfigmap.path }}
+            - name: certs
+              mountPath: {{ .Values.fluentd.certPath }}
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: {{ .Values.fluentdMasterConfigmap.name }}
+          configMap:
+            name: {{ .Values.fluentdMasterConfigmap.name }}
+        - name: certs
+          secret:
+            secretName: {{ .Values.tlsServerName }}

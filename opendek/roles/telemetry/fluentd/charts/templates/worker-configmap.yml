@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.fluentdConfigmap.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.fluentd.name }}
+    app: {{ .Values.fluentd.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Release.Name }}
+data:
+  fluent.conf: |-
+    @include pods-fluent.conf
+    @include forward-fluent.conf
+  pods-fluent.conf: |-
+    <source>
+      @type tail
+      read_from_head true
+      tag {{ .Values.fluentdConfigmap.tag }}
+      path {{ .Values.fluentdConfigmap.inputPaths }}
+      <parse>
+        @type none
+      </parse>
+    </source>
+  forward-fluent.conf: |-
+    <match **>
+      @type forward
+      send_timeout 60s
+      recover_wait 10s
+      hard_timeout 60s
+
+      transport tls
+      tls_insecure_mode true
+      tls_cert_path  {{ .Values.fluentd.certPath }}/ca.crt
+      tls_client_cert_path  {{ .Values.fluentd.certPath }}/tls.crt
+      tls_client_private_key_path  {{ .Values.fluentd.certPath }}/tls.key
+
+      <server>
+        name {{ .Values.service.name }}
+        host {{ .Values.service.name }}
+        port {{ .Values.service.port }}
+        weight 60
+      </server>
+    </match>

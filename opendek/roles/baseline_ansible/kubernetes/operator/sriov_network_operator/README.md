@@ -11,6 +11,7 @@ The SR-IOV Network Operator role is divided to several sub-roles:
 - `prepare_node` - node(worker) preparation for Operator
 - `install` - for installing Operator via Helm chart
 - `configure` - parametrized sub-role for applying `SriovNetworkNodePolicy` and `SriovNetwork` via variables.
+- `tasks` - ansible tasks, currently for `readiness|liveness` only 
 
 # Role specific variables
 

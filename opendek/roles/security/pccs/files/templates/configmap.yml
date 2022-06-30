@@ -23,7 +23,7 @@ data:
         "sqlite": {
             "database": "database",
             "username": "username",
-            "password": "password",
+            "password": "{{ .Values.configmap.sqlite_password }}",
             "options": {
                 "host": "localhost",
                 "dialect": "sqlite",
@@ -37,13 +37,13 @@ data:
                     "freezeTableName": true
                 },
                 "logging" : false,
-                "storage": "pckcache.db"
+                "storage": "/tmp/pckcache.db"
             }
         },
         "mysql": {
             "database" : "pckcache",
             "username" : "root",
-            "password" : "mypass",
+            "password" : "{{ .Values.configmap.mysql_password }}",
             "options" : {
                 "host": "localhost",
                 "dialect": "mysql",

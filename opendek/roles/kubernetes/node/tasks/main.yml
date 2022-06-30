@@ -41,29 +41,29 @@
       register: discovery_token_ca_cert_hash
       ignore_errors: false
       become: yes
-    - name: create JoinConfiguration and update Kubelet config
-      blockinfile:
-        path: "{{ _kubernetes_config_file }}"
-        block: |
-          ---
-          apiVersion: kubeadm.k8s.io/v1beta2
-          caCertPath: /etc/kubernetes/pki/ca.crt
-          discovery:
-            bootstrapToken:
-              apiServerEndpoint: {{ hostvars[groups['controller_group'][0]]['ansible_host'] }}:6443
-              token: "{{ token.stdout }}"
-              caCertHashes: [{{ discovery_token_ca_cert_hash.stdout }}]
-              unsafeSkipCAVerification: true
-            timeout: 5m0s
-          kind: JoinConfiguration
-          nodeRegistration:
-            criSocket: /var/run/dockershim.sock
-            name: {{ k8s_worker_node_name }}
-            taints: null
+    - name: create JoinConfiguration
+      template:
+        src: config.yaml.j2
+        dest: "{{ _join_config_file }}"
+        mode: a=,u=rw
       become: yes
+    - name: get value for kubernetes_service_host for split network
+      command: cat /tmp/kubernetes_service_host
+      register: kubernetes_service_host
+      delegate_to: "{{ groups['controller_group'][0] }}"
+      changed_when: true
+      when: split_network | default(false)
+    - name: modify config file for split network feature of PWEK
+      replace:
+        path: "{{ _join_config_file }}"
+        regexp: "apiServerEndpoint:.*$"
+        replace: "apiServerEndpoint: {{ kubernetes_service_host.stdout }}:{{ kubernetes_service_port }}"
+      become: yes
+      when: split_network | default(false)
     - name: join the cluster
-      command: "kubeadm join --config={{ _kubernetes_config_file }} --v=2"
+      command: "kubeadm join --config={{ _join_config_file }} --v=2"
       become: yes
+
   when: get_node.rc == 1
 
 - name: label node as a worker

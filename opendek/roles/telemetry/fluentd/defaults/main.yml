@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+# defaults file for fluentd
+_fluentd_chart_dir: "{{ ne_helm_charts_default_dir }}/fluentd"
+
+_tls_server_name: fluentd
+_tls_secret_name: fluentd-tls
+
+telemetry_fluentd_forward_targets: []

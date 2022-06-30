@@ -1,12 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2021-2022 Intel Corporation
 ---
-- name: create temporary directory
-  tempfile:
-    suffix: statsd-exporter
-    state: directory
-  register: temp_dir
-
 - name: create certificates for Statsd-exporter
   include_role:
     name: kubernetes/certs
@@ -15,46 +9,56 @@
     desired_namespace: "{{ telemetry_namespace }}"
     dns_names: ["statsd-exporter"]
 
-- name: template values.yaml file
-  template:
-    src: "{{ item.src }}"
-    dest: "{{ temp_dir.path }}/{{ item.dest }}"
-    mode: u+rw
-    force: yes
-  loop:
-    - {src: kustomization.yml.j2, dest: kustomization.yaml}
-    - {src: values.yml.j2, dest: overwrite_values.yaml}
-    - {src: proxy_configmap.yml.j2, dest: proxy_configmap.yaml}
-
-- name: apply statsd-cm manifest
-  command: kubectl apply -f "{{ temp_dir.path }}/proxy_configmap.yaml"
-  changed_when: true
-
-- name: template prometheus-statsd-exporter helm charts
+- name: download the helm-chart
   command:
     argv:
       - helm
-      - template
-      - --values
-      - "{{ temp_dir.path }}/overwrite_values.yaml"
+      - pull
       - --repo
       - "{{ _statsd_helm_repo.url }}"
       - --version
       - "{{ _statsd_helm_repo.version }}"
-      - --namespace
-      - "{{ telemetry_namespace }}"
-      - --no-hooks # Omit http hook since we don't expose http port
-      - statsd-exporter
       - "{{ _statsd_helm_repo.name }}"
-  changed_when: false
-  register: template_command
+      - --untar
+      - --untardir
+      - "{{ ne_helm_charts_default_dir }}"
+    creates: "{{ helm_dir_path }}"
+  register: result
+  retries: "{{ number_of_retries }}"
+  until: result is succeeded
+  delay: "{{ retry_delay }}"
 
-- name: write the templated manifests to one file
+- name: template values files to helm directory
+  template:
+    src: values.yml.j2
+    dest: "{{ helm_dir_path }}/overwrite_values.yaml"
+    mode: u+rw
+
+- name: copy helm templates
   copy:
-    content: "{{ template_command.stdout }}"
-    dest: "{{ temp_dir.path }}/all.yaml"
+    src: "{{ item }}"
+    dest: "{{ helm_dir_path }}/templates/{{ item }}"
+    mode: u+rw
+    force: yes
+  loop:
+    - proxy_configmap.yaml
+    - service_monitor.yaml
+    - service.yaml
+
+- name: template prometheus-statsd-exporter helm charts
+  shell: "set -o pipefail &&  helm template -f overwrite_values.yaml -n {{ telemetry_namespace }} --no-hooks  statsd-exporter . > all.yaml"
+  args:
+    creates: "{{ helm_dir_path }}/all.yaml"
+    chdir: "{{ helm_dir_path }}"
+
+- name: template kustomization file
+  template:
+    src: "kustomization.yml.j2"
+    dest: "{{ helm_dir_path }}/kustomization.yaml"
     mode: u+rw
 
 - name: Kustomize and apply templated file
-  command: kubectl apply -k {{ temp_dir.path }}
+  command: kubectl apply -k .
+  args:
+    chdir: "{{ helm_dir_path }}"
   changed_when: true

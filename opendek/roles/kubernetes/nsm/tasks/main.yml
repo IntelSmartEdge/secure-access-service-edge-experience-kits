@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022 Intel Corporation
+
+---
+
+- name: install spire
+  command: kubectl apply -k "{{ _nsm_git_repo_url }}/examples/spire?ref={{ _nsm_version }}"
+  changed_when: true
+
+- name: wait for spire-agent and spire-server to start
+  command: >
+    kubectl wait -n spire --timeout=10m --for=condition=ready pod -l \
+    "app in ( spire-agent,spire-server )"
+  changed_when: false
+
+- name: install nsm 
+  block:
+  - name: create nsm namespace if not present
+    include_role:
+      name: baseline_ansible/kubernetes/custom_namespace
+    vars:
+      - _custom_ns: [ nsm-system ]
+
+  - name: apply nsm resources
+    command: kubectl apply -k "{{ _nsm_git_repo_url }}/examples/basic?ref={{ _nsm_version }}"
+    changed_when: true
+
+  - name: wait for nsm to start
+    command: >
+      kubectl wait pod -l "app in (admission-webhook-k8s,forwarder-vpp,nsmgr,registry-k8s)" \
+      --for=condition=ready -n nsm-system --timeout=10m
+    changed_when: false

@@ -484,7 +484,7 @@ In corner cases it is possible to *ansible_distribution* and *ansible_distributi
 
 ## Package management
 
-Roles should install needed packages using *install_dependencies* role (check role [README](https://github.com/smart-edge-open/secure-access-services-edge-experience-kits/blob/main/opendek/roles/baseline-ansible/infrastructure/install_dependencies/README.md) for details).
+Roles should install needed packages using *install_dependencies* role (check role [README](https://github.com/smart-edge-open/baseline-ansible/blob/main/infrastructure/install_dependencies/README.md) for details).
 
 *install_dependencies* allows specifying packages for specific distributions and version.
 
